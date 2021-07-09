@@ -18,8 +18,10 @@ unet_training_level_by_level = False
 # database_data_chunks_padding_type = 'SAME'
 database_src_data_shape = [258, 360, 6]
 database_tgt_data_shape = [258, 360]
+
 # mine
 data_chunks_duration_in_bins = 258
+data_chunks_overlap_in_bins_for_training = 258//4
 data_chunks_overlap_in_bins = (25,25) # beginning and end
 
 #[train - test - validation split]

@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # coding: utf-8
 
-# In[137]:
+# In[1]:
 
 
 import matplotlib.pyplot as plt
@@ -22,12 +22,12 @@ def chunk_and_concat(src_data):
     chunk hcqt or target
     src_data: [t, f] or [t, f, h]
     '''
-    data_chunks_duration_in_bins,     data_chunks_overlap_in_bins = hparams.data_chunks_duration_in_bins, hparams.data_chunks_overlap_in_bins
+    data_chunks_duration_in_bins, data_chunks_overlap_in_bins = hparams.data_chunks_duration_in_bins, hparams.data_chunks_overlap_in_bins
 
     data_chunks_beg_overlap_in_bins = data_chunks_overlap_in_bins[0]
     data_chunks_end_overlap_in_bins = data_chunks_overlap_in_bins[1]
 
-    chunks,     last_chunk = chunker.chunk_data_with_same_padding(src_data,
+    chunks, last_chunk = chunker.chunk_data_with_same_padding(src_data,
                                                       data_chunks_duration_in_bins=data_chunks_duration_in_bins,
                                                       data_chunks_overlap_in_bins=data_chunks_overlap_in_bins) # [t, ...]
 
@@ -84,28 +84,28 @@ def chunk_and_concat(src_data):
     return output
 
 
-# In[100]:
+# In[3]:
 
 
-def chunk_data(data, # data_chunks_duration_in_bins=None,
-                     # data_chunks_overlap_in_bins=None,
-                     include_last_chunk ):
+def chunk_data(data, data_chunks_duration_in_bins,
+                     data_chunks_overlap_in_bins,
+                     include_last_chunk):
     """
     Chunks data.
     Args:
         data: ndarray, [h, f ,t] or [f, t]
-        data_chunks_duration_in_bins: # 暂时废弃
-        data_chunks_overlap_in_bins: # 暂时废弃
+        data_chunks_duration_in_bins: 每一个训练样本的时间步长度
+        data_chunks_overlap_in_bins: 不同训练样本间跳步长度
         include_last_chunk: bool
-    Returns: a list(include_last_chunk=True)
-            or a tuple:(list, np-array)(include_last_chunk=False)
+    Returns: a list (include_last_chunk=False)
+             or a tuple:(list, np-array) (include_last_chunk=True)
     """
-    data = data.T
+    data = data.T # [t,f] or [t,f,h]
 
-    data_chunks_duration_in_bins = hparams.data_chunks_duration_in_bins
+    # data_chunks_duration_in_bins = hparams.data_chunks_duration_in_bins
     
-    chunks_beg_overlap_in_bins = hparams.data_chunks_overlap_in_bins[0]
-    chunks_end_overlap_in_bins = hparams.data_chunks_overlap_in_bins[1]
+    # chunks_beg_overlap_in_bins = hparams.data_chunks_overlap_in_bins[0]
+    # chunks_end_overlap_in_bins = hparams.data_chunks_overlap_in_bins[1]
 
     start_bin = 0
     end_bin = start_bin + data_chunks_duration_in_bins
@@ -115,7 +115,7 @@ def chunk_data(data, # data_chunks_duration_in_bins=None,
 
         chunks.append(data[start_bin:end_bin].T)
 
-        start_bin = end_bin - (chunks_beg_overlap_in_bins + chunks_end_overlap_in_bins)
+        start_bin = start_bin + data_chunks_overlap_in_bins
         end_bin = start_bin + data_chunks_duration_in_bins
 
     # save last chunk
@@ -130,14 +130,16 @@ def chunk_data(data, # data_chunks_duration_in_bins=None,
     else:
         return chunks
 
-
-# In[128]:
-
-
-def source_index_to_chunk_list(source_list):
+def source_index_to_chunk_list(source_list, data_chunks_duration_in_bins, data_chunks_overlap_in_bins):
     '''
-    source_list: a list of index eg.[0,1,4,5,6,7,8,9]
-    doesn't include last_chunk
+    For training.
+    Params:
+        source_list: a list of index eg.[0,1,4,5,6,7,8,9], meaning the songs to be chunked
+        data_chunks_duration_in_bins: 每一个训练样本的时间步长度
+        data_chunks_overlap_in_bins: 不同训练样本间跳步长度
+    Return:
+        chunk_list: a list of tuple(X, y), X is hcqt, y is annotation
+    doesn't include last_chunk.
     '''
     chunk_list = []
     for fold_index in source_list:
@@ -145,17 +147,17 @@ def source_index_to_chunk_list(source_list):
         for track_id in fold_list:
             X = np.load(f'./inputs/{track_id}_mel2_input.hcqt.npy')
             y = np.load(f'./outputs/{track_id}_mel2_output.npy')
-            X_chunk = chunk_data(X, include_last_chunk=False)
-            y_chunk = chunk_data(y, include_last_chunk=False)
+            X_chunk = chunk_data(X, 
+                                 data_chunks_duration_in_bins=data_chunks_duration_in_bins, 
+                                 data_chunks_overlap_in_bins=data_chunks_overlap_in_bins, 
+                                 include_last_chunk=False)
+            y_chunk = chunk_data(y, 
+                                 data_chunks_duration_in_bins=data_chunks_duration_in_bins, 
+                                 data_chunks_overlap_in_bins=data_chunks_overlap_in_bins, 
+                                 include_last_chunk=False)
             chunk_list += list(zip(X_chunk, y_chunk))
-    random.shuffle(chunk_list)
+    # random.shuffle(chunk_list)
     return chunk_list
-
-
-# In[138]:
-
-
-
 
 
 # In[ ]:
