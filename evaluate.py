@@ -1,20 +1,20 @@
 #!/usr/bin/env python
 # coding: utf-8
 
-# In[12]:
+# In[1]:
 
 
 import mir_eval
 import numpy as np
-import torch
 from prepare_data_and_label import get_freq_grid
 
 def evaluate(y_pred_clean, y, num_floor):
     '''
     多样本(返回测评结果的均值) or 单样本
     y_pred_clean: [N, 1, f, t] or [f, t], 需要先peak picking, 并且把unvoicing屏蔽掉
-    y: [N, f, t] or [f, t], label
-    num_floor: 0/1/2/3
+    y:            [N, f, t]    or [f, t], label
+    num_floor:    0/1/2/3
+    y_pred_clean和y缩放无影响
     '''
     
     if len(y_pred_clean.shape) == 2 and y_pred_clean.shape == y.shape:
@@ -32,13 +32,15 @@ def evaluate(y_pred_clean, y, num_floor):
     ref_time = est_time
     ref_freq = y.argmax(0)
     
+    # 标记unvoicing
     ref_freq[y[ref_freq, ref_time]<=0] = -1
-    est_freq[y_pred_clean[est_freq, est_time]<=0] = -1
+    est_freq[y_pred_clean[est_freq, est_time]<=0] = -1 # 这里的-1只是下标
+                                                       # 要转换成表示unvoicing的0Hz还在后面
     
     f = get_freq_grid()
     idx = np.arange(0,360,2**num_floor)
     freq = f[idx]
-    freq = np.append(freq, -1)
+    freq = np.append(freq, 0)
     
     ref_freq = freq[ref_freq]
     est_freq = freq[est_freq]
@@ -55,16 +57,5 @@ def evaluate(y_pred_clean, y, num_floor):
 
 
 # In[21]:
-
-'''
-try:
-    get_ipython().system('jupyter nbconvert --to python evaluate.ipynb')
-except:
-    pass
-'''
-
-# In[ ]:
-
-
 
 
