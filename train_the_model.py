@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # coding: utf-8
 
-# In[89]:
+# In[20]:
 
 
 import torch
@@ -12,7 +12,7 @@ plt.switch_backend('agg')
 import random
 import datetime
 from tqdm import tqdm
-import argparse, os
+import argparse, os, math
 
 import data_generator
 import hparams
@@ -20,6 +20,7 @@ import model_unet
 import numpy as np
 from loss_function import CrossEntropyLoss_Origin
 import utils
+import evaluate
 
 device = "cuda" if torch.cuda.is_available() else "cpu"
 print("Using {} device".format(device))
@@ -83,7 +84,7 @@ num_floor = args.out_floor
 
 # # split data, generate train/test_dataloader
 
-# In[19]:
+# In[4]:
 
 
 '''
@@ -98,9 +99,13 @@ valid_fold_index_list = hparams.validation_set_fold_index
 
 # prepare dataloader
 print(f'{datetime.datetime.now()} - Preparing train_dataloader...')
-train_dataloader = data_generator.source_index_to_chunk_list(source_list=train_fold_index_list)#[0:32]
+train_dataloader = data_generator.source_index_to_chunk_list(source_list=train_fold_index_list, 
+                                                             data_chunks_duration_in_bins=hparams.data_chunks_duration_in_bins,
+                                                             data_chunks_overlap_in_bins=hparams.data_chunks_overlap_in_bins_for_training)#[0:32]
 print(f'{datetime.datetime.now()} - Preparing valid_dataloader...')
-valid_dataloader = data_generator.source_index_to_chunk_list(source_list=valid_fold_index_list)#[0:32]
+valid_dataloader = data_generator.source_index_to_chunk_list(source_list=valid_fold_index_list,
+                                                             data_chunks_duration_in_bins=hparams.data_chunks_duration_in_bins,
+                                                             data_chunks_overlap_in_bins=hparams.data_chunks_overlap_in_bins_for_training)#[0:32]
 
 train_dataloader = DataLoader(train_dataloader, batch_size=hparams.batch_size, shuffle=True)
 valid_dataloader = DataLoader(valid_dataloader, batch_size=hparams.batch_size, shuffle=True)
@@ -108,15 +113,16 @@ valid_dataloader = DataLoader(valid_dataloader, batch_size=hparams.batch_size, s
 
 # # train/test function
 
-# In[34]:
+# In[21]:
 
 
+# 一个epoch的训练
 def train(dataloader, model, loss_fn, optimizer, scheduler, out_floor):
     model.train()
     size = len(dataloader.dataset)
     loss_total = 0
     
-    for batch, (X, y) in enumerate(dataloader): # 每次返回一个batch
+    for batch, (X, y) in tqdm(enumerate(dataloader)): # 每次返回一个batch
         X, y = X.to(device), y.to(device)
         
         batch_size = len(X)
@@ -146,85 +152,97 @@ def train(dataloader, model, loss_fn, optimizer, scheduler, out_floor):
             
 def test(dataloader, model, out_floor):
     size = len(dataloader.dataset)
+    
     model.eval()
-    test_loss, correct = 0, 0
+    test_loss = 0
+    oa_avg, vr_avg, vfa_avg, rpa_avg, rca_avg = 0, 0, 0, 0, 0
+    
     with torch.no_grad():
         for X, y in dataloader:
             X, y = X.to(device), y.to(device)
-            pred = model(X, out_floor)
+            Xpred = model(X, out_floor)
+            Xout = utils.salience_to_output(Xpred)
             
             if out_floor == 0:
-                loss = loss_fn(pred, y)
+                loss = loss_fn(Xpred, y)
+                oa, vr, vfa, rpa, rca = evaluate.evaluate(Xout, y, out_floor)
             else:
                 # downsample y
                 y_downsample = utils.downsample(y, out_floor)
-                loss = loss_fn(pred, y_downsample)
+                loss = loss_fn(Xpred, y_downsample)
+                oa, vr, vfa, rpa, rca = evaluate.evaluate(Xout, y_downsample, out_floor)
             
             test_loss += loss.item()
-            #correct += (pred.argmax(1) == y).type(torch.float).sum().item() # TODO
-    test_loss /= size
-    #correct /= size
-    #print(f"Test Error: \n Accuracy: {(100*correct):>0.1f}%, Avg loss: {test_loss:>8f} \n")
+            oa_avg += oa
+            vr_avg += vr
+            vfa_avg += vfa
+            rpa_avg += rpa
+            rca_avg += rca
+            
+    test_loss /= size # 每张图的loss
+    
+    batch_num = math.ceil(size/dataloader.batch_size)
+    oa_avg /= batch_num
+    vr_avg /= batch_num
+    vfa_avg /= batch_num
+    rpa_avg /= batch_num
+    rca_avg /= batch_num
+    
     print(f"Test Error: Avg loss: {test_loss:>8f} \n")
-    return test_loss
+    print(f"Test OA\t{oa_avg}\tVR\t{vr_avg}\tVFA\t{vfa_avg}\tRPA\t{rpa_avg}\tRCA\t{rca_avg}\n")
+    
+    return test_loss, oa_avg, vr_avg, vfa_avg, rpa_avg, rca_avg
 
 
-# # Train :)
+# # 训练模型🌟
 
-# In[ ]:
+# In[13]:
 
 
 model = model_unet.UNet(device=device)
 if saved_model_path != None:
+    print(f'loading model from {saved_model_path}...')
     model.load_state_dict(torch.load(saved_model_path))
+else:
+    print('raw model')
 optimizer = torch.optim.Adam(params=model.parameters(), lr=lr)
 scheduler_decay = torch.optim.lr_scheduler.ExponentialLR(optimizer, gamma=0.94, verbose=True)
 scheduler_stop = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', threshold=1e-3, factor=-1, patience=1000)
 loss_fn = CrossEntropyLoss_Origin().to(device)
 
-test_loss_list = []
-train_loss_list = []
-
 
 # In[ ]:
 
 
+# 多个epoch训练，每个epoch后在验证集上测试
+
+train_loss_list = []
+valid_loss_list = []
+best_oa = -1
+
 for t in range(epochs_finished, epochs_finished+epochs):
     print(f"Epoch {t+1}\n-------------------------------{datetime.datetime.now()}")
     train_loss = train(train_dataloader, model, loss_fn, optimizer, scheduler_decay, num_floor)
-    test_loss = test(valid_dataloader, model, num_floor)
+    valid_loss, oa, _, _, _, _ = test(valid_dataloader, model, num_floor)
     
-    test_loss_list.append(test_loss)
     train_loss_list.append(train_loss)
+    valid_loss_list.append(valid_loss)
     
-    scheduler_stop.step(test_loss)
+    scheduler_stop.step(valid_loss)
     
     if optimizer.state_dict()['param_groups'][0]['lr']<=0:
         print(f'Early stop after {t+1} epochs.')
         break
     
     plt.plot(range(1,len(train_loss_list)+1), train_loss_list, c='b')
-    plt.plot(range(1,len(test_loss_list)+1), test_loss_list, c='r')
+    plt.plot(range(1,len(valid_loss_list)+1), valid_loss_list, c='r')
     plt.savefig(os.path.join(save_dir, 'loss.png'))
     
-    torch.save(model.state_dict(), os.path.join(save_dir, f'model_lr{lr}_floor{num_floor}_epoch{t+1}.pth'))
+    # 保存最优模型
+    if oa > best_oa:
+        print(f'[in epoch {t+1}, Overall Accuracy got new best: from {best_oa} to {oa}. Will save the model]')
+        best_oa = oa
+        torch.save(model.state_dict(), os.path.join(save_dir, f'model_floor{num_floor}_best.pth'))
     
 print("Done!")
-
-
-# torch.save(model.state_dict(), 'model_minibatch_floor3_good.pth')
-
-# In[1]:
-
-'''
-try:
-    get_ipython().system('jupyter nbconvert --to python train_the_model.ipynb')
-except:
-    pass
-'''
-
-# In[ ]:
-
-
-
 
