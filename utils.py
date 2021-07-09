@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # coding: utf-8
 
-# In[5]:
+# In[3]:
 
 
 import numpy as np
@@ -24,18 +24,30 @@ import torch.nn as nn
 def salience_to_output(temp, threshold=0):
     '''
     Suitable for multisample.
-    temp: [N, c, f, t]
+    temp: [N, 1, f, t]（未经softmax）
+    [OUTPUT]:每个时间步只有一个激活的0/1矩阵
+    计算损失函数的时候不用这个，要真实的输出时才会用这个函数
     '''
     out = torch.zeros_like(temp)
-    sm = nn.functional.softmax(temp, dim=2)    
+    sm = nn.functional.softmax(temp, dim=2)
     sm[sm < threshold] = 0
-    indices = sm.max(axis=2).indices
-    for n in range(temp.shape[0]):
-        out[n,0].T.scatter_(dim=1, index=indices[n,0].reshape(33,-1), value=1)
+    # 到这里sm是部分为0，其余都小于等于1的矩阵
+    
+    _, maxi = sm.topk(1, dim=2)
+
+    index0 = torch.tensor([list(range(sm.shape[0]))]*sm.shape[3]).T.reshape(-1)
+    index1 = torch.zeros((sm.shape[0]*sm.shape[3],), dtype=torch.int64)
+    index2 = maxi.reshape(-1)
+    index3 = torch.tensor([list(range(sm.shape[3]))]*sm.shape[0]).reshape(-1)
+    
+    sm[index0, index1, index2, index3] += 1
+    out = torch.zeros_like(sm)
+    out[sm > 1] = 1
+    
     return out
 
 
-# In[ ]:
+# In[4]:
 
 
 def downsample(batch_data, num_floor):
@@ -52,17 +64,19 @@ def downsample(batch_data, num_floor):
     
     # 到这里rst一定是0/1的
     
-    maxv, maxi = rst.topk(1, dim=1)
-    print(maxi, maxi.shape)
+    _, maxi = rst.topk(1, dim=1)
     
     rst_only = torch.zeros_like(rst)
 
-    index1 = torch.tensor([list(range(rst.shape[0]))]*rst.shape[2]).T.reshape(-1)
-    index2 = maxi.reshape(-1)
-    index3 = torch.tensor([list(range(rst.shape[2]))]*rst.shape[0]).reshape(-1)
+    index0 = torch.tensor([list(range(rst.shape[0]))]*rst.shape[2]).T.reshape(-1)
+    index1 = maxi.reshape(-1)
+    index2 = torch.tensor([list(range(rst.shape[2]))]*rst.shape[0]).reshape(-1)
     
-    rst[index1, index2, index3] += 1
+    rst[index0, index1, index2] += 1
     
     rst_only[rst==2] = 1
     
     return rst_only
+
+
+

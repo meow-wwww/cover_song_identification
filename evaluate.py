@@ -5,6 +5,7 @@
 
 
 import mir_eval
+import torch
 import numpy as np
 from prepare_data_and_label import get_freq_grid
 
@@ -56,6 +57,4 @@ def evaluate(y_pred_clean, y, num_floor):
     return overall_accuracy,  voicing_recall, voicing_false_alarm, raw_pitch_accuracy, raw_chroma_accuracy
 
 
-# In[21]:
-
-
+# In[5]:
