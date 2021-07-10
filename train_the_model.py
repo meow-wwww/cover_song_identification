@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # coding: utf-8
 
-# In[20]:
+# In[1]:
 
 
 import torch
@@ -56,10 +56,13 @@ assert args.save_dir != None, ('请输入存储目录')
 if not os.path.exists(args.save_dir):
     print(f'Save_dir {args.save_dir} does not exist. Will create one.')
     save_dir = args.save_dir
+    os.mkdir(save_dir)
 else:
-    print(f'Save_dir {args.save_dir} already exist. Will create {args.save_dir}_2 to avoid overwrite.')
-    save_dir = args.save_dir+'_2'
-os.mkdir(save_dir)
+    print(f'Save_dir {args.save_dir} already exist. Will save to this directory.')
+    save_dir = args.save_dir
+    # print(f'Save_dir {args.save_dir} already exist. Will create {args.save_dir}_2 to avoid overwrite.')
+    # save_dir = args.save_dir+'_2'
+
 
 if args.saved_model == None:
     print('Don\'t use saved model, train from scratch')
@@ -113,13 +116,14 @@ valid_dataloader = DataLoader(valid_dataloader, batch_size=hparams.batch_size, s
 
 # # train/test function
 
-# In[21]:
+# In[2]:
 
 
 # 一个epoch的训练
 def train(dataloader, model, loss_fn, optimizer, scheduler, out_floor):
     model.train()
     size = len(dataloader.dataset)
+    batch_num = math.ceil(size/dataloader.batch_size)
     loss_total = 0
     
     for batch, (X, y) in tqdm(enumerate(dataloader)): # 每次返回一个batch
@@ -144,14 +148,15 @@ def train(dataloader, model, loss_fn, optimizer, scheduler, out_floor):
         loss.backward()
         optimizer.step()
 
-        if batch % 20 == 0:
+        if (batch+1) % 100 == 0:
             loss, current = loss.item(), (batch + 1) * len(X)
-            print(f"Avg loss: {loss/batch_size:>7f}  [{current:>5d}/{size:>5d}]")
+            print(f"Avg loss: {loss:>7f}  [{current:>5d}/{size:>5d}]")
     scheduler.step()
-    return loss_total/size
+    return loss_total/batch_num
             
 def test(dataloader, model, out_floor):
     size = len(dataloader.dataset)
+    batch_num = math.ceil(size/dataloader.batch_size)
     
     model.eval()
     test_loss = 0
@@ -179,9 +184,8 @@ def test(dataloader, model, out_floor):
             rpa_avg += rpa
             rca_avg += rca
             
-    test_loss /= size # 每张图的loss
+    test_loss /= batch_num # 每张图的loss
     
-    batch_num = math.ceil(size/dataloader.batch_size)
     oa_avg /= batch_num
     vr_avg /= batch_num
     vfa_avg /= batch_num
@@ -245,4 +249,3 @@ for t in range(epochs_finished, epochs_finished+epochs):
         torch.save(model.state_dict(), os.path.join(save_dir, f'model_floor{num_floor}_best.pth'))
     
 print("Done!")
-

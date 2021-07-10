@@ -44,10 +44,14 @@ class CrossEntropyLoss_Origin(nn.Module):
         '''
         output = output.squeeze(dim=1) # output: [N, f, t]
         
-        output -= output.max() # 防止softmax溢出
-        sm = func.softmax(output, dim=-2)
+        output_minus = output - output.max() # 防止softmax溢出
+        sm = func.softmax(output_minus, dim=-2)
 
         none_zero_lines = one_hot.bool().any(1)
         
         return (-torch.log(sm)*one_hot).sum()/none_zero_lines.sum()
+
+
+# In[1]:
+
 
