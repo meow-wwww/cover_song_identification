@@ -47,11 +47,13 @@ class CrossEntropyLoss_Origin(nn.Module):
         output_minus = output - output.max() # 防止softmax溢出
         sm = func.softmax(output_minus, dim=-2)
 
-        none_zero_lines = one_hot.bool().any(1)
+        none_zero_lines_num = one_hot.bool().any(1).sum()
         
-        return (-torch.log(sm)*one_hot).sum()/none_zero_lines.sum()
+        if none_zero_lines_num == 0: # 在这里曾经因为除以0发生了一次NaN (╥﹏╥)
+            return (-torch.log(sm)*one_hot).sum()*0 # 其实直接return一个0tensor也行，但考虑到device，还是这样写吧
+        else:
+            return (-torch.log(sm)*one_hot).sum()/none_zero_lines_num
 
 
-# In[1]:
-
+# In[2]:
 
