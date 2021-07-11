@@ -24,6 +24,8 @@ data_chunks_duration_in_bins = 258
 data_chunks_overlap_in_bins_for_training = 258//4
 data_chunks_overlap_in_bins = (25,25) # beginning and end
 
+threshold = 0.05
+
 #[train - test - validation split]
 train_set_fold_index = [0,1,2,3,4,5,6,7]
 validation_set_fold_index = [8]
