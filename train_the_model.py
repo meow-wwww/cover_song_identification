@@ -67,7 +67,7 @@ else:
 if args.saved_model == None:
     print('Don\'t use saved model, train from scratch')
 else:
-    print(f'Use saved model[{arg.saved_model}], train from it')
+    print(f'Use saved model[{args.saved_model}], train from it')
 saved_model_path = args.saved_model
 
 if args.lr == None:
