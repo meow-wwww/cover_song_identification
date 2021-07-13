@@ -18,7 +18,7 @@ import data_generator
 import hparams
 import model_unet
 import numpy as np
-from loss_function import CrossEntropyLoss_Origin
+import loss_function
 import utils
 import evaluate
 
@@ -87,7 +87,7 @@ num_floor = args.out_floor
 
 # # split data, generate train/test_dataloader
 
-# In[3]:
+# In[ ]:
 
 
 '''
@@ -116,7 +116,7 @@ valid_dataloader = DataLoader(valid_dataloader, batch_size=hparams.batch_size, s
 
 # # train/test function
 
-# In[11]:
+# In[ ]:
 
 
 # 一个epoch的训练+测试
@@ -201,7 +201,7 @@ def test(dataloader, model, loss_fn, out_floor):
 
 # # 训练模型🌟
 
-# In[13]:
+# In[ ]:
 
 
 model = model_unet.UNet(device=device)
@@ -214,7 +214,8 @@ else:
 optimizer = torch.optim.Adam(params=model.parameters(), lr=lr)
 scheduler_decay = torch.optim.lr_scheduler.ExponentialLR(optimizer, gamma=0.94, verbose=True)
 scheduler_stop = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', threshold=1e-3, factor=-1, patience=1000)
-loss_fn = CrossEntropyLoss_Origin().to(device)
+# loss_fn = CrossEntropyLoss_Origin().to(device)
+loss_fn = loss_function.CrossEntropyLoss_for_FA_CE().to(device)
 
 
 # In[ ]:
@@ -255,7 +256,5 @@ for t in range(epochs_finished, epochs_finished+epochs):
 print("Done!")
 
 
-# In[16]:
-
-
+# In[ ]:
 

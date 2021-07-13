@@ -55,5 +55,37 @@ class CrossEntropyLoss_Origin(nn.Module):
             return (-torch.log(sm)*one_hot).sum()/none_zero_lines_num
 
 
-# In[2]:
+# In[10]:
+
+
+class CrossEntropyLoss_for_FA_CE(nn.Module):
+    def __init__(self):
+        super(CrossEntropyLoss_for_FA_CE, self).__init__()
+        return
+    def forward(self, output, one_hot):
+        '''
+        output: network output(not softmax yet)
+                shape: [N, 1, f, t]
+        one_hot: ground truth(has not been gaussian blurred)
+                shape: [N, f, t]
+        [OUTPUT]是一个batch中不同样本的均值
+        '''
+        output = output.squeeze(dim=1) # output: [N, f, t]
+        output_minus = output - output.max() # 防止softmax溢出
+        sm = func.softmax(output_minus, dim=-2)
+        
+        # 对one-hot进行处理，没有label的全零列改成1/360
+
+        none_zero_lines = one_hot.bool().any(1).reshape(-1)
+        one_hot = one_hot.float()
+        index0 = torch.tensor([list(range(one_hot.shape[0]))]*one_hot.shape[2]).T.reshape(-1)[none_zero_lines == False]
+        index2 = torch.tensor([list(range(one_hot.shape[2]))]*one_hot.shape[0]).reshape(-1)[none_zero_lines == False]
+        one_hot[index0, :, index2] = 1/one_hot.shape[1]
+        
+        return (-torch.log(sm)*one_hot).sum()
+
+
+# In[3]:
+
+
 
