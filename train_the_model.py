@@ -22,6 +22,9 @@ import loss_function
 import utils
 import evaluate
 
+os.environ["CUDA_VISIBLE_DEVICES"] = "3"
+
+
 device = "cuda" if torch.cuda.is_available() else "cpu"
 print("Using {} device".format(device))
 
