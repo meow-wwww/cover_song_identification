@@ -16,7 +16,7 @@ import argparse, os, math
 
 import data_generator
 import hparams
-import model_unet
+import model_unet_unfold as model_unet
 import numpy as np
 import loss_function
 import utils
@@ -34,6 +34,7 @@ saved_model_path = None
 epochs = 0
 epochs_finished = 0
 num_floor = -1
+device_ids = []
 
 print('--------------ArgParse--------------')
 
@@ -45,7 +46,7 @@ parser.add_argument('--lr', type=float, help='学习率')
 parser.add_argument('-e', '--epochs', type=int, help='有几个epoch')
 # parser.add_argument('--epochs_finished', type=int, help='已经完成了几个epoch')
 parser.add_argument('-o', '--out_floor', type=int, help='输出在第几层(0，1，2，3)')
-parser.add_argument('--gpu', type=int, help='要用的gpu号')
+parser.add_argument('--gpu', help='要用的gpu号')
 
 args = parser.parse_args()
 
@@ -80,25 +81,32 @@ assert args.out_floor in [0,1,2,3], ('输入的层数必须为0 1 2 3之一')
 num_floor = args.out_floor
 
 assert args.gpu != None, ('请输入要用的gpu号')
-device = f'cuda:{args.gpu}' if torch.cuda.is_available() else 'cpu'
-print("Using {} device".format(device))
+device_ids = list(map(lambda x: int(x), args.gpu.split(',')))
+print(f'device_ids: {device_ids}')
+os.environ['CUDA_VISIBLE_DEVICES'] = args.gpu
 
 
 # In[ ]:
 
 
-model = model_unet.UNet(device=device)
+model = model_unet.UNet()
 if saved_model_path != None:
     print(f'loading model from {saved_model_path}...')
     model = torch.load(saved_model_path)
 else:
     print('raw model')
     
+# multi-gpu
+model = nn.DataParallel(model)
+model = model.cuda()
+    
 optimizer = torch.optim.Adam(params=model.parameters(), lr=lr)
 scheduler_decay = torch.optim.lr_scheduler.ExponentialLR(optimizer, gamma=0.94, verbose=True)
 scheduler_stop = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', threshold=1e-3, factor=-1, patience=1000)
 
-loss_fn = loss_function.CrossEntropyLoss_for_FA_CE().to(device)
+loss_fn = loss_function.CrossEntropyLoss_for_FA_CE()
+loss_fn = nn.DataParallel(loss_fn)
+loss_fn = loss_fn.cuda()
 
 
 # # split data, generate train/test_dataloader
@@ -126,8 +134,8 @@ valid_dataloader = data_generator.source_index_to_chunk_list(source_list=valid_f
                                                              data_chunks_duration_in_bins=hparams.data_chunks_duration_in_bins,
                                                              data_chunks_overlap_in_bins=hparams.data_chunks_overlap_in_bins_for_training)
 
-train_dataloader = DataLoader(train_dataloader, batch_size=hparams.batch_size, shuffle=True)
-valid_dataloader = DataLoader(valid_dataloader, batch_size=hparams.batch_size, shuffle=False)
+train_dataloader = DataLoader(train_dataloader, batch_size=hparams.batch_size*len(device_ids), shuffle=True)
+valid_dataloader = DataLoader(valid_dataloader, batch_size=hparams.batch_size*len(device_ids), shuffle=False)
 
 
 # # train/test function
@@ -143,7 +151,8 @@ def train(dataloader, model, loss_fn, optimizer, scheduler, out_floor):
     loss_total = 0
     
     for batch, (X, y) in tqdm(enumerate(dataloader)): # 每次返回一个batch
-        X, y = X.to(device), y.to(device)
+        # X, y = X.to(device), y.to(device)
+        X, y = X.cuda(), y.cuda()
         # Compute prediction error
         pred = model(X, out_floor)
         
@@ -181,7 +190,8 @@ def test(dataloader, model, loss_fn, out_floor):
     
     
         for X, y in dataloader:
-            X, y = X.to(device), y.to(device) # single-gpu
+            # X, y = X.to(device), y.to(device) # single-gpu
+            X, y = X.cuda(), y.cuda()
             Xpred = model(X, out_floor)
             Xout = utils.salience_to_output(Xpred, threshold=hparams.threshold)
             
@@ -255,9 +265,4 @@ print("Done!")
 
 
 # In[ ]:
-
-
-
-
-
 
