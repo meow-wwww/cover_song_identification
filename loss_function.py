@@ -82,7 +82,7 @@ class CrossEntropyLoss_for_FA_CE(nn.Module):
         index2 = torch.tensor([list(range(one_hot.shape[2]))]*one_hot.shape[0]).reshape(-1)[none_zero_lines == False]
         one_hot[index0, :, index2] = 1/one_hot.shape[1]
         
-        return (-torch.log(sm)*one_hot).sum()
+        return (-torch.log(sm)*one_hot).sum()/(output.shape[2]*output.shape[0])
 
 
 # In[3]:
