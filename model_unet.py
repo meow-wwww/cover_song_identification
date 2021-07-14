@@ -77,25 +77,25 @@ class up_conv(nn.Module):
 
 
 class UNet(nn.Module):
-    def __init__(self, device):
+    def __init__(self):
         super(UNet, self).__init__()
         
         self.channel_layers = [64, 128, 256, 512]
         
         self.MaxPool = nn.MaxPool2d(kernel_size=(2,2), stride=2, ceil_mode=True)
         
-        self.DownConv0 = down_conv(6, 64).to(device)
-        self.DownConv1 = down_conv(64, 128).to(device)
-        self.DownConv2 = down_conv(128, 256).to(device)
-        self.DownConv3 = down_conv(256, 512).to(device)
+        self.DownConv0 = down_conv(6, 64)
+        self.DownConv1 = down_conv(64, 128)
+        self.DownConv2 = down_conv(128, 256)
+        self.DownConv3 = down_conv(256, 512)
         
-        self.GetOut = [out_conv(self.channel_layers[i]*2).to(device) for i in range(0,3)] + [out_conv(self.channel_layers[3]).to(device)]
+        self.GetOut = nn.ModuleList([out_conv(self.channel_layers[i]*2) for i in range(0,3)] + [out_conv(self.channel_layers[3])])
         # 64*2->1 128*2->1 256*2->1 512->1
         
-        self.Up_T_Conv = ['placeholder'] + [up_T_conv(self.channel_layers[i]*2, self.channel_layers[i-1]).to(device) for i in range(1,3)]+[up_T_conv(self.channel_layers[3], self.channel_layers[3-1]).to(device)]
+        self.Up_T_Conv = nn.ModuleList([up_T_conv(self.channel_layers[i]*2, self.channel_layers[i-1]) for i in range(1,3)]+[up_T_conv(self.channel_layers[3], self.channel_layers[3-1])])
         # 'placeholder' 128*2->64 256*2->128 512->256
         
-        self.Up_Conv = [up_conv(self.channel_layers[i]*2).to(device) for i in range(3)]
+        self.Up_Conv = nn.ModuleList([up_conv(self.channel_layers[i]*2) for i in range(3)])
         # 64*2 128*2 256*2
         
     def forward(self, x, out_floor):
@@ -123,7 +123,7 @@ class UNet(nn.Module):
                 x = self.GetOut[floor](x)
                 return x
             else:
-                x = self.Up_T_Conv[floor](x)
+                x = self.Up_T_Conv[floor-1](x)
                 if x.shape[-1] != save_for_concat[floor-1].shape[-1]:
                     if x.shape[-1]-1 == save_for_concat[floor-1].shape[-1]:
                         x = x[:,:,:,:-1]

@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # coding: utf-8
 
-# In[12]:
+# In[1]:
 
 
 import torch
@@ -16,18 +16,17 @@ import argparse, os, math
 
 import data_generator
 import hparams
-import model_unet
+import model_unet_debug as model_unet
 import numpy as np
 import loss_function
 import utils
 import evaluate
 
 
-# # argparse
-
 # In[ ]:
 
 
+# argparse
 save_dir = None
 lr = 1e-3
 saved_model_path = None
@@ -37,6 +36,7 @@ num_floor = -1
 BATCH_SIZE = 16
 overlap = 4
 threshold = 0.05
+loss_fn = None
 
 print('--------------ArgParse--------------')
 
@@ -48,11 +48,11 @@ parser.add_argument('--lr', type=float, help='学习率')
 parser.add_argument('-e', '--epochs', type=int, help='有几个epoch')
 # parser.add_argument('--epochs_finished', type=int, help='已经完成了几个epoch')
 parser.add_argument('-f', '--out_floor', type=int, help='输出在第几层(0，1，2，3)')
-parser.add_argument('-g', '--gpu', type=int, help='要用的gpu号')
+parser.add_argument('-g', '--gpu', help='要用的gpu号')
 parser.add_argument('-b', '--batch_size', type=int, help='batch_size')
 parser.add_argument('-o', '--overlap', type=int, help='切出训练数据时，跳步占全部长度的几分之一')
 parser.add_argument('-t','--threshold', type=float, help='生成结果用的阈值')
-# parser.add_argument('--loss', type=int, help='损失函数')
+parser.add_argument('--loss', type=int, help='损失函数')
 
 args = parser.parse_args()
 
@@ -86,8 +86,12 @@ assert args.out_floor in [0,1,2,3], ('输入的层数必须为0 1 2 3之一')
 num_floor = args.out_floor
 
 assert args.gpu != None, ('请输入要用的gpu号')
-device = f'cuda:{args.gpu}' if torch.cuda.is_available() else 'cpu'
-print("Using {} device".format(device))
+device_ids = list(map(lambda x: int(x), args.gpu.split(',')))
+print(f'using device_ids: {device_ids}')
+os.environ["CUDA_VISIBLE_DEVICES"] = args.gpu
+print(f'device count: {torch.cuda.device_count()}')
+
+device = torch.device("cuda:0")
 
 if args.batch_size == None:
     print(f'using default batch_size {BATCH_SIZE}')
@@ -107,20 +111,44 @@ if args.threshold == None:
 else:
     threshold = args.threshold
     print(f'using threshold from command: {threshold}')
+    
+if args.loss == 0:
+    loss_fn = loss_function.CrossEntropyLoss_Origin()
+elif args.loss == 1:
+    loss_fn = loss_function.CrossEntropyLoss_for_FA_CE()
+else:
+    assert False, ('损失函数代号不在范围内')
+print(f'Using loss_function: {loss_fn.__class__.__name__}')
 
-
-# # split data, generate train/test_dataloader
 
 # In[ ]:
 
 
-'''
-fold_index = list(range(10))
-random.shuffle(fold_index)
-test_fold_index = fold_index[0]
-validation_fold_index = fold_index[1]
-train_fold_index_list = fold_index[2:]
-'''
+model = model_unet.UNet()
+if saved_model_path != None:
+    print(f'loading model from {saved_model_path}...')
+    model = torch.load(saved_model_path)
+else:
+    print('raw model')
+model = nn.DataParallel(model)
+model = model.to(device)
+
+
+# loss_fn = loss_function.CrossEntropyLoss_for_FA_CE()
+loss_fn = nn.DataParallel(loss_fn)
+loss_fn = loss_fn.to(device)
+
+    
+optimizer = torch.optim.Adam(params=model.parameters(), lr=lr)
+scheduler_decay = torch.optim.lr_scheduler.ExponentialLR(optimizer, gamma=0.94, verbose=True)
+scheduler_stop = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', threshold=1e-3, factor=-1, patience=1000)
+
+
+# In[ ]:
+
+
+# split data, generate train/test_dataloader
+
 train_fold_index_list = hparams.train_set_fold_index
 valid_fold_index_list = hparams.validation_set_fold_index
 
@@ -134,11 +162,9 @@ valid_dataloader = data_generator.source_index_to_chunk_list(source_list=valid_f
                                                              data_chunks_duration_in_bins=hparams.data_chunks_duration_in_bins,
                                                              data_chunks_overlap_in_bins=overlap)
 
-train_dataloader = DataLoader(train_dataloader, batch_size=BATCH_SIZE, shuffle=True)
-valid_dataloader = DataLoader(valid_dataloader, batch_size=BATCH_SIZE, shuffle=True)
+train_dataloader = DataLoader(train_dataloader, batch_size=BATCH_SIZE*len(device_ids), shuffle=True)
+valid_dataloader = DataLoader(valid_dataloader, batch_size=BATCH_SIZE*len(device_ids), shuffle=True)
 
-
-# # train/test function
 
 # In[ ]:
 
@@ -152,6 +178,7 @@ def train(dataloader, model, loss_fn, optimizer, scheduler, out_floor):
     
     for batch, (X, y) in tqdm(enumerate(dataloader)): # 每次返回一个batch
         X, y = X.to(device), y.to(device)
+        # X, y = X.cuda(device=device_ids[0]), y.cuda(device=device_ids[0])
         # Compute prediction error
         pred = model(X, out_floor)
         
@@ -162,6 +189,7 @@ def train(dataloader, model, loss_fn, optimizer, scheduler, out_floor):
             y_downsample = utils.downsample(y, out_floor)
             loss = loss_fn(pred, y_downsample)
             
+        loss = loss.mean()
         loss_total += loss.item()
             
         # Backpropagation
@@ -190,6 +218,7 @@ def test(dataloader, model, loss_fn, out_floor):
     
         for X, y in dataloader:
             X, y = X.to(device), y.to(device) # single-gpu
+            # X, y = X.cuda(device=device_ids[0]), y.cuda(device=device_ids[0])
             Xpred = model(X, out_floor)
             Xout = utils.salience_to_output(Xpred, threshold=threshold)
             
@@ -202,6 +231,7 @@ def test(dataloader, model, loss_fn, out_floor):
                 loss = loss_fn(Xpred, y_downsample)
                 oa, vr, vfa, rpa, rca = evaluate.evaluate(Xout, y_downsample, out_floor)
             
+            loss = loss.mean()
             test_loss += loss.item()
             oa_avg += oa
             vr_avg += vr
@@ -223,28 +253,10 @@ def test(dataloader, model, loss_fn, out_floor):
     return test_loss, oa_avg, vr_avg, vfa_avg, rpa_avg, rca_avg
 
 
+# In[ ]:
+
+
 # # 训练模型🌟
-
-# In[ ]:
-
-
-model = model_unet.UNet(device=device)
-if saved_model_path != None:
-    print(f'loading model from {saved_model_path}...')
-    model = torch.load(saved_model_path)
-else:
-    print('raw model')
-    
-optimizer = torch.optim.Adam(params=model.parameters(), lr=lr)
-scheduler_decay = torch.optim.lr_scheduler.ExponentialLR(optimizer, gamma=0.94, verbose=True)
-scheduler_stop = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', threshold=1e-3, factor=-1, patience=1000)
-
-loss_fn = loss_function.CrossEntropyLoss_for_FA_CE().to(device)
-
-
-# In[ ]:
-
-
 # 多个epoch训练，每个epoch后在验证集上测试
 
 train_loss_list = []
@@ -279,7 +291,5 @@ for t in range(epochs_finished, epochs_finished+epochs):
 print("Done!")
 
 
-# In[17]:
-
-
+# In[ ]:
 
