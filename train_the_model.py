@@ -29,23 +29,30 @@ import evaluate
 
 
 save_dir = None
-lr = 0
+lr = 1e-3
 saved_model_path = None
 epochs = 0
 epochs_finished = 0
 num_floor = -1
+BATCH_SIZE = 16
+overlap = 4
+threshold = 0.05
 
 print('--------------ArgParse--------------')
 
 parser = argparse.ArgumentParser()
 
-parser.add_argument('--save_dir', help='目标存储目录')
-parser.add_argument('--saved_model', help='以训练过的模型')
+parser.add_argument('-d', '--save_dir', help='目标存储目录')
+parser.add_argument('-s', '--saved_model', help='以训练过的模型')
 parser.add_argument('--lr', type=float, help='学习率')
 parser.add_argument('-e', '--epochs', type=int, help='有几个epoch')
 # parser.add_argument('--epochs_finished', type=int, help='已经完成了几个epoch')
-parser.add_argument('-o', '--out_floor', type=int, help='输出在第几层(0，1，2，3)')
-parser.add_argument('--gpu', type=int, help='要用的gpu号')
+parser.add_argument('-f', '--out_floor', type=int, help='输出在第几层(0，1，2，3)')
+parser.add_argument('-g', '--gpu', type=int, help='要用的gpu号')
+parser.add_argument('-b', '--batch_size', type=int, help='batch_size')
+parser.add_argument('-o', '--overlap', type=int, help='切出训练数据时，跳步占全部长度的几分之一')
+parser.add_argument('-t','--threshold', type=float, help='生成结果用的阈值')
+# parser.add_argument('--loss', type=int, help='损失函数')
 
 args = parser.parse_args()
 
@@ -66,11 +73,10 @@ else:
 saved_model_path = args.saved_model
 
 if args.lr == None:
-    lr = 1e-3
     print('Using default lr=1e-3')
 else:
     lr = args.lr
-    print(f'Using lr from command: lr={lr}')
+    print(f'Using lr from command: {lr}')
 
 assert args.epochs != None, ('请输入epochs数')
 epochs = args.epochs
@@ -83,22 +89,24 @@ assert args.gpu != None, ('请输入要用的gpu号')
 device = f'cuda:{args.gpu}' if torch.cuda.is_available() else 'cpu'
 print("Using {} device".format(device))
 
-
-# In[ ]:
-
-
-model = model_unet.UNet(device=device)
-if saved_model_path != None:
-    print(f'loading model from {saved_model_path}...')
-    model = torch.load(saved_model_path)
+if args.batch_size == None:
+    print(f'using default batch_size {BATCH_SIZE}')
 else:
-    print('raw model')
+    BATCH_SIZE = args.batch_size
+    print(f'using batch_size from command: {BATCH_SIZE}')
     
-optimizer = torch.optim.Adam(params=model.parameters(), lr=lr)
-scheduler_decay = torch.optim.lr_scheduler.ExponentialLR(optimizer, gamma=0.94, verbose=True)
-scheduler_stop = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', threshold=1e-3, factor=-1, patience=1000)
+if args.overlap == None:
+    print(f'using default overlap {overlap}')
+else:
+    overlap = args.overlap
+    print(f'using overlap from command: {overlap}')
+overlap = 258//overlap
 
-loss_fn = loss_function.CrossEntropyLoss_for_FA_CE().to(device)
+if args.threshold == None:
+    print(f'using default threshold {threshold}')
+else:
+    threshold = args.threshold
+    print(f'using threshold from command: {threshold}')
 
 
 # # split data, generate train/test_dataloader
@@ -120,14 +128,14 @@ valid_fold_index_list = hparams.validation_set_fold_index
 print(f'{datetime.datetime.now()} - Preparing train_dataloader...')
 train_dataloader = data_generator.source_index_to_chunk_list(source_list=train_fold_index_list, 
                                                              data_chunks_duration_in_bins=hparams.data_chunks_duration_in_bins,
-                                                             data_chunks_overlap_in_bins=hparams.data_chunks_overlap_in_bins_for_training)
+                                                             data_chunks_overlap_in_bins=overlap)
 print(f'{datetime.datetime.now()} - Preparing valid_dataloader...')
 valid_dataloader = data_generator.source_index_to_chunk_list(source_list=valid_fold_index_list,
                                                              data_chunks_duration_in_bins=hparams.data_chunks_duration_in_bins,
-                                                             data_chunks_overlap_in_bins=hparams.data_chunks_overlap_in_bins_for_training)
+                                                             data_chunks_overlap_in_bins=overlap)
 
-train_dataloader = DataLoader(train_dataloader, batch_size=hparams.batch_size, shuffle=True)
-valid_dataloader = DataLoader(valid_dataloader, batch_size=hparams.batch_size, shuffle=False)
+train_dataloader = DataLoader(train_dataloader, batch_size=BATCH_SIZE, shuffle=True)
+valid_dataloader = DataLoader(valid_dataloader, batch_size=BATCH_SIZE, shuffle=True)
 
 
 # # train/test function
@@ -183,7 +191,7 @@ def test(dataloader, model, loss_fn, out_floor):
         for X, y in dataloader:
             X, y = X.to(device), y.to(device) # single-gpu
             Xpred = model(X, out_floor)
-            Xout = utils.salience_to_output(Xpred, threshold=hparams.threshold)
+            Xout = utils.salience_to_output(Xpred, threshold=threshold)
             
             if out_floor == 0:
                 loss = loss_fn(Xpred, y)
@@ -220,6 +228,23 @@ def test(dataloader, model, loss_fn, out_floor):
 # In[ ]:
 
 
+model = model_unet.UNet(device=device)
+if saved_model_path != None:
+    print(f'loading model from {saved_model_path}...')
+    model = torch.load(saved_model_path)
+else:
+    print('raw model')
+    
+optimizer = torch.optim.Adam(params=model.parameters(), lr=lr)
+scheduler_decay = torch.optim.lr_scheduler.ExponentialLR(optimizer, gamma=0.94, verbose=True)
+scheduler_stop = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', threshold=1e-3, factor=-1, patience=1000)
+
+loss_fn = loss_function.CrossEntropyLoss_for_FA_CE().to(device)
+
+
+# In[ ]:
+
+
 # 多个epoch训练，每个epoch后在验证集上测试
 
 train_loss_list = []
@@ -247,17 +272,14 @@ for t in range(epochs_finished, epochs_finished+epochs):
     # 保存最优模型
     if oa > best_oa:
         with torch.no_grad():
-            print(f'[in epoch {t+1}, OA got new best: from {best_oa} to {oa}. Will save the model]')
+            print(f'[in epoch {t+1}, OA got new best: from {best_oa:.4f} to {oa:.4f}. Will save the model]')
             best_oa = oa
             torch.save(model, os.path.join(save_dir, f'model_floor{num_floor}_best.pth'))
     
 print("Done!")
 
 
-# In[ ]:
-
-
-
+# In[17]:
 
 
 
