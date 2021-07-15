@@ -1,6 +1,12 @@
 #!/usr/bin/env python
 # coding: utf-8
 
+# In[ ]:
+
+
+#!/usr/bin/env python
+# coding: utf-8
+
 # In[1]:
 
 
@@ -27,7 +33,7 @@ def cross_entropy_multilayer_simplify(sm, one_hot):
 '''
 
 
-# In[10]:
+# In[ ]:
 
 
 class CrossEntropyLoss_Origin(nn.Module):
@@ -55,7 +61,7 @@ class CrossEntropyLoss_Origin(nn.Module):
             return (-torch.log(sm)*one_hot).sum()/none_zero_lines_num
 
 
-# In[10]:
+# In[ ]:
 
 
 class CrossEntropyLoss_for_FA_CE(nn.Module):
@@ -85,7 +91,52 @@ class CrossEntropyLoss_for_FA_CE(nn.Module):
         return (-torch.log(sm)*one_hot).sum()/(output.shape[2]*output.shape[0])
 
 
-# In[3]:
+# In[2]:
+
+
+class CrossEntropyLoss_for_FA_CE_VNV(nn.Module):
+    def __init__(self):
+        super(CrossEntropyLoss_for_FA_CE_VNV, self).__init__()
+        return
+    def forward(self, output, one_hot):
+        '''
+        output: network output(not softmax yet)
+                shape: [N, 1, f, t]
+        one_hot: ground truth(has not been gaussian blurred)
+                shape: [N, f, t]
+        [OUTPUT]是一个batch中不同样本的均值
+        '''
+        output = output.squeeze(dim=1) # output: [N, f, t]
+        output_minus = output - output.max() # 防止softmax溢出
+        sm = func.softmax(output_minus, dim=-2)
+        
+        # 对one-hot进行处理，没有label的全零列改成1/f
+
+        none_zero_lines = one_hot.bool().any(1).reshape(-1)
+        one_hot_float = one_hot.float()
+        index0 = torch.tensor([list(range(one_hot_float.shape[0]))]*one_hot_float.shape[2]).T.reshape(-1)[none_zero_lines == False]
+        index2 = torch.tensor([list(range(one_hot_float.shape[2]))]*one_hot_float.shape[0]).reshape(-1)[none_zero_lines == False]
+        one_hot_float[index0, :, index2] = 1/one_hot_float.shape[1]
+        
+        loss_all = (-torch.log(sm)*one_hot_float).sum() # scalar tensor
+        num_all = output.shape[2]*output.shape[0]
+        # ----------------------------------------------------------------------
+        none_zero_lines_num = none_zero_lines.sum()
+        if none_zero_lines_num == 0:
+            loss_voicing = loss_all*0
+            num_voicing = 0
+        else:
+            loss_voicing = (-torch.log(sm)*one_hot).sum()
+            num_voicing = none_zero_lines_num
+            
+        loss_unvoicing = loss_all - loss_voicing
+        num_unvoicing = num_all - num_unvoicing
+        
+        return loss_voicing, num_voicing, loss_unvoicing, num_unvoicing
+
+
+# In[ ]:
+
 
 
 

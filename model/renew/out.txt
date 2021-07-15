@@ -1,0 +1,307 @@
+--------------ArgParse--------------
+Save_dir model/renew already exist. Will save to this directory.
+Don't use saved model, train from scratch
+Using lr from command: 0.0001
+using device_ids: [1, 2, 3]
+device count: 3
+using default batch_size 16
+using overlap from command: 10
+using default threshold 0.05
+raw model
+Adjusting learning rate of group 0 to 1.0000e-04.
+2021-07-14 16:26:42.377584 - Preparing train_dataloader...
+2021-07-14 16:29:41.420049 - Preparing valid_dataloader...
+Epoch 1
+-------------------------------2021-07-14 16:29:49.921172
+Avg loss: 2.3614  [ 4800/63174]
+Avg loss: 1.9178  [ 9600/63174]
+Avg loss: 2.2471  [14400/63174]
+Avg loss: 1.9839  [19200/63174]
+Avg loss: 1.8786  [24000/63174]
+Avg loss: 1.7905  [28800/63174]
+Avg loss: 1.7537  [33600/63174]
+Avg loss: 1.9745  [38400/63174]
+Avg loss: 2.0497  [43200/63174]
+Avg loss: 1.8576  [48000/63174]
+Avg loss: 1.6685  [52800/63174]
+Avg loss: 1.4792  [57600/63174]
+Avg loss: 1.5000  [62400/63174]
+Adjusting learning rate of group 0 to 9.4000e-05.
+Test Error: Avg loss: 2.3013 
+
+Test OA	0.4866	VR	0.9876	VFA	0.9132	RPA	0.6614	RCA	0.6685
+
+[in epoch 1, OA got new best: from 0.0000 to 0.4866. Will save the model]
+Epoch 2
+-------------------------------2021-07-14 16:35:52.601366
+Avg loss: 1.7857  [ 4800/63174]
+Avg loss: 1.6185  [ 9600/63174]
+Avg loss: 1.7020  [14400/63174]
+Avg loss: 1.6455  [19200/63174]
+Avg loss: 1.9478  [24000/63174]
+Avg loss: 1.5664  [28800/63174]
+Avg loss: 1.7530  [33600/63174]
+Avg loss: 1.1733  [38400/63174]
+Avg loss: 1.4768  [43200/63174]
+Avg loss: 1.6387  [48000/63174]
+Avg loss: 1.4098  [52800/63174]
+Avg loss: 1.3875  [57600/63174]
+Avg loss: 1.1748  [62400/63174]
+Adjusting learning rate of group 0 to 8.8360e-05.
+Test Error: Avg loss: 2.3313 
+
+Test OA	0.5415	VR	0.9454	VFA	0.6891	RPA	0.6420	RCA	0.6464
+
+[in epoch 2, OA got new best: from 0.4866 to 0.5415. Will save the model]
+Epoch 3
+-------------------------------2021-07-14 17:05:00.684539
+Avg loss: 1.1976  [ 4800/63174]
+Avg loss: 1.7296  [ 9600/63174]
+Avg loss: 1.4240  [14400/63174]
+Avg loss: 1.1687  [19200/63174]
+Avg loss: 1.3495  [24000/63174]
+Avg loss: 1.3173  [28800/63174]
+Avg loss: 1.2070  [33600/63174]
+Avg loss: 1.2491  [38400/63174]
+Avg loss: 1.4938  [43200/63174]
+Avg loss: 1.2371  [48000/63174]
+Avg loss: 1.3202  [52800/63174]
+Avg loss: 1.6307  [57600/63174]
+Avg loss: 1.6037  [62400/63174]
+Adjusting learning rate of group 0 to 8.3058e-05.
+Test Error: Avg loss: 2.5475 
+
+Test OA	0.5185	VR	0.9429	VFA	0.7297	RPA	0.6273	RCA	0.6333
+
+Epoch 4
+-------------------------------2021-07-14 17:10:56.505111
+Avg loss: 1.2032  [ 4800/63174]
+Avg loss: 1.2215  [ 9600/63174]
+Avg loss: 1.3243  [14400/63174]
+Avg loss: 1.3781  [19200/63174]
+Avg loss: 1.0863  [24000/63174]
+Avg loss: 1.2836  [28800/63174]
+Avg loss: 1.2792  [33600/63174]
+Avg loss: 1.2587  [38400/63174]
+Avg loss: 1.4405  [43200/63174]
+Avg loss: 1.4229  [48000/63174]
+Avg loss: 1.2847  [52800/63174]
+Avg loss: 1.7498  [57600/63174]
+Avg loss: 0.9529  [62400/63174]
+Adjusting learning rate of group 0 to 7.8075e-05.
+Test Error: Avg loss: 2.5128 
+
+Test OA	0.5754	VR	0.9185	VFA	0.5580	RPA	0.6344	RCA	0.6387
+
+[in epoch 4, OA got new best: from 0.5415 to 0.5754. Will save the model]
+Epoch 5
+-------------------------------2021-07-14 17:16:51.840156
+Avg loss: 1.3775  [ 4800/63174]
+Avg loss: 1.2094  [ 9600/63174]
+Avg loss: 1.2113  [14400/63174]
+Avg loss: 1.1986  [19200/63174]
+Avg loss: 1.1459  [24000/63174]
+Avg loss: 1.3151  [28800/63174]
+Avg loss: 1.4047  [33600/63174]
+Avg loss: 1.6494  [38400/63174]
+Avg loss: 1.2234  [43200/63174]
+Avg loss: 1.3218  [48000/63174]
+Avg loss: 1.2214  [52800/63174]
+Avg loss: 1.0317  [57600/63174]
+Avg loss: 1.3677  [62400/63174]
+Adjusting learning rate of group 0 to 7.3390e-05.
+Test Error: Avg loss: 2.5111 
+
+Test OA	0.6006	VR	0.8993	VFA	0.4621	RPA	0.6282	RCA	0.6319
+
+[in epoch 5, OA got new best: from 0.5754 to 0.6006. Will save the model]
+Epoch 6
+-------------------------------2021-07-14 17:22:48.192379
+Avg loss: 1.0145  [ 4800/63174]
+Avg loss: 1.3255  [ 9600/63174]
+Avg loss: 1.2563  [14400/63174]
+Avg loss: 1.2784  [19200/63174]
+Avg loss: 1.2851  [24000/63174]
+Avg loss: 1.2789  [28800/63174]
+Avg loss: 1.6385  [33600/63174]
+Avg loss: 1.2120  [38400/63174]
+Avg loss: 1.2250  [43200/63174]
+Avg loss: 1.4323  [48000/63174]
+Avg loss: 1.3213  [52800/63174]
+Avg loss: 1.1235  [57600/63174]
+Avg loss: 1.2075  [62400/63174]
+Adjusting learning rate of group 0 to 6.8987e-05.
+Test Error: Avg loss: 2.5475 
+
+Test OA	0.5906	VR	0.9071	VFA	0.5134	RPA	0.6368	RCA	0.6405
+
+Epoch 7
+-------------------------------2021-07-14 17:28:43.122347
+Avg loss: 1.1186  [ 4800/63174]
+Avg loss: 1.3916  [ 9600/63174]
+Avg loss: 1.2929  [14400/63174]
+Avg loss: 1.2058  [19200/63174]
+Avg loss: 1.6896  [24000/63174]
+Avg loss: 1.4319  [28800/63174]
+Avg loss: 1.0347  [33600/63174]
+Avg loss: 1.7051  [38400/63174]
+Avg loss: 1.4088  [43200/63174]
+Avg loss: 1.0421  [48000/63174]
+Avg loss: 1.1075  [52800/63174]
+Avg loss: 1.4414  [57600/63174]
+Avg loss: 1.0880  [62400/63174]
+Adjusting learning rate of group 0 to 6.4848e-05.
+Test Error: Avg loss: 2.6508 
+
+Test OA	0.5963	VR	0.9071	VFA	0.4954	RPA	0.6367	RCA	0.6408
+
+Epoch 8
+-------------------------------2021-07-14 17:34:39.011713
+Avg loss: 1.2622  [ 4800/63174]
+Avg loss: 1.3983  [ 9600/63174]
+Avg loss: 1.2994  [14400/63174]
+Avg loss: 1.2958  [19200/63174]
+Avg loss: 1.2351  [24000/63174]
+Avg loss: 1.1230  [28800/63174]
+Avg loss: 1.0075  [33600/63174]
+Avg loss: 1.2932  [38400/63174]
+Avg loss: 1.3423  [43200/63174]
+Avg loss: 1.3657  [48000/63174]
+Avg loss: 1.4175  [52800/63174]
+Avg loss: 1.4420  [57600/63174]
+Avg loss: 1.0916  [62400/63174]
+Adjusting learning rate of group 0 to 6.0957e-05.
+Test Error: Avg loss: 2.7381 
+
+Test OA	0.5788	VR	0.9145	VFA	0.5628	RPA	0.6405	RCA	0.6442
+
+Epoch 9
+-------------------------------2021-07-14 17:40:34.515692
+Avg loss: 1.3073  [ 4800/63174]
+Avg loss: 1.0072  [ 9600/63174]
+Avg loss: 0.9279  [14400/63174]
+Avg loss: 1.1534  [19200/63174]
+Avg loss: 1.2552  [24000/63174]
+Avg loss: 1.1613  [28800/63174]
+Avg loss: 1.3386  [33600/63174]
+Avg loss: 1.3873  [38400/63174]
+Avg loss: 1.3470  [43200/63174]
+Avg loss: 1.1985  [48000/63174]
+Avg loss: 1.6665  [52800/63174]
+Avg loss: 1.6445  [57600/63174]
+Avg loss: 1.3664  [62400/63174]
+Adjusting learning rate of group 0 to 5.7299e-05.
+Test Error: Avg loss: 2.6465 
+
+Test OA	0.6032	VR	0.8933	VFA	0.4669	RPA	0.6342	RCA	0.6386
+
+[in epoch 9, OA got new best: from 0.6006 to 0.6032. Will save the model]
+Epoch 10
+-------------------------------2021-07-14 17:46:30.184656
+Avg loss: 1.2533  [ 4800/63174]
+Avg loss: 1.1338  [ 9600/63174]
+Avg loss: 1.2043  [14400/63174]
+Avg loss: 1.0682  [19200/63174]
+Avg loss: 0.9804  [24000/63174]
+Avg loss: 1.2770  [28800/63174]
+Avg loss: 1.2013  [33600/63174]
+Avg loss: 1.2811  [38400/63174]
+Avg loss: 1.5760  [43200/63174]
+Avg loss: 1.2495  [48000/63174]
+Avg loss: 1.2727  [52800/63174]
+Avg loss: 0.9633  [57600/63174]
+Avg loss: 1.4314  [62400/63174]
+Adjusting learning rate of group 0 to 5.3862e-05.
+Test Error: Avg loss: 2.7176 
+
+Test OA	0.5998	VR	0.8525	VFA	0.4101	RPA	0.6043	RCA	0.6079
+
+Epoch 11
+-------------------------------2021-07-14 17:52:25.154250
+Avg loss: 1.1504  [ 4800/63174]
+Avg loss: 1.0615  [ 9600/63174]
+Avg loss: 1.2445  [14400/63174]
+Avg loss: 1.3544  [19200/63174]
+Avg loss: 1.2401  [24000/63174]
+Avg loss: 1.2700  [28800/63174]
+Avg loss: 1.1189  [33600/63174]
+Avg loss: 1.1393  [38400/63174]
+Avg loss: 1.0443  [43200/63174]
+Avg loss: 1.4090  [48000/63174]
+Avg loss: 1.3808  [52800/63174]
+Avg loss: 1.5254  [57600/63174]
+Avg loss: 1.1190  [62400/63174]
+Adjusting learning rate of group 0 to 5.0630e-05.
+Test Error: Avg loss: 2.7732 
+
+Test OA	0.6075	VR	0.8644	VFA	0.4210	RPA	0.6200	RCA	0.6229
+
+[in epoch 11, OA got new best: from 0.6032 to 0.6075. Will save the model]
+Epoch 12
+-------------------------------2021-07-14 17:58:25.576303
+Avg loss: 1.1992  [ 4800/63174]
+Avg loss: 0.9854  [ 9600/63174]
+Avg loss: 1.4689  [14400/63174]
+Avg loss: 1.3772  [19200/63174]
+Avg loss: 1.1296  [24000/63174]
+Avg loss: 1.0239  [28800/63174]
+Avg loss: 1.5637  [33600/63174]
+Avg loss: 1.0003  [38400/63174]
+Avg loss: 1.1834  [43200/63174]
+Avg loss: 0.9406  [48000/63174]
+Avg loss: 1.2222  [52800/63174]
+Avg loss: 1.2749  [57600/63174]
+Avg loss: 1.4435  [62400/63174]
+Adjusting learning rate of group 0 to 4.7592e-05.
+Test Error: Avg loss: 2.7907 
+
+Test OA	0.6185	VR	0.8796	VFA	0.4191	RPA	0.6345	RCA	0.6375
+
+[in epoch 12, OA got new best: from 0.6075 to 0.6185. Will save the model]
+Epoch 13
+-------------------------------2021-07-14 18:05:24.788947
+Avg loss: 1.4465  [ 4800/63174]
+Avg loss: 1.2401  [ 9600/63174]
+Avg loss: 1.0273  [14400/63174]
+Avg loss: 1.1232  [19200/63174]
+Avg loss: 1.1957  [24000/63174]
+Avg loss: 1.3460  [28800/63174]
+Avg loss: 1.3868  [33600/63174]
+Avg loss: 1.1696  [38400/63174]
+Avg loss: 1.1018  [43200/63174]
+Avg loss: 1.2497  [48000/63174]
+Avg loss: 1.3927  [52800/63174]
+Avg loss: 1.1140  [57600/63174]
+Avg loss: 1.0407  [62400/63174]
+Adjusting learning rate of group 0 to 4.4737e-05.
+Test Error: Avg loss: 2.8898 
+
+Test OA	0.6073	VR	0.8941	VFA	0.4604	RPA	0.6373	RCA	0.6407
+
+Epoch 14
+-------------------------------2021-07-14 18:27:20.468017
+Avg loss: 1.1390  [ 4800/63174]
+Avg loss: 1.2392  [ 9600/63174]
+Avg loss: 1.1416  [14400/63174]
+Avg loss: 1.3023  [19200/63174]
+Avg loss: 1.0419  [24000/63174]
+Avg loss: 1.2759  [28800/63174]
+Avg loss: 1.0007  [33600/63174]
+Avg loss: 0.8829  [38400/63174]
+Avg loss: 0.9811  [43200/63174]
+Avg loss: 1.0755  [48000/63174]
+Avg loss: 1.6138  [52800/63174]
+Avg loss: 1.4259  [57600/63174]
+Avg loss: 1.2592  [62400/63174]
+Adjusting learning rate of group 0 to 4.2052e-05.
+Test Error: Avg loss: 2.8489 
+
+Test OA	0.6097	VR	0.8657	VFA	0.4196	RPA	0.6220	RCA	0.6245
+
+Epoch 15
+-------------------------------2021-07-14 19:10:26.321660
+Avg loss: 1.0845  [ 4800/63174]
+Avg loss: 1.3896  [ 9600/63174]
+Avg loss: 1.2289  [14400/63174]
+Avg loss: 1.4701  [19200/63174]
+Avg loss: 1.0549  [24000/63174]

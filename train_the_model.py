@@ -16,7 +16,7 @@ import argparse, os, math
 
 import data_generator
 import hparams
-import model_unet_debug as model_unet
+import model_unet
 import numpy as np
 import loss_function
 import utils
@@ -133,12 +133,10 @@ else:
 model = nn.DataParallel(model)
 model = model.to(device)
 
-
-# loss_fn = loss_function.CrossEntropyLoss_for_FA_CE()
 loss_fn = nn.DataParallel(loss_fn)
 loss_fn = loss_fn.to(device)
 
-    
+
 optimizer = torch.optim.Adam(params=model.parameters(), lr=lr)
 scheduler_decay = torch.optim.lr_scheduler.ExponentialLR(optimizer, gamma=0.94, verbose=True)
 scheduler_stop = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', threshold=1e-3, factor=-1, patience=1000)
@@ -291,5 +289,17 @@ for t in range(epochs_finished, epochs_finished+epochs):
 print("Done!")
 
 
+# In[3]:
+
+
+try:
+    get_ipython().system('jupyter nbconvert --to python train_the_model.ipynb')
+except:
+    pass
+
+
 # In[ ]:
+
+
+
 
