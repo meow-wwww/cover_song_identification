@@ -28,7 +28,7 @@ import evaluate
 
 # argparse
 save_dir = None
-lr = 1e-3
+lr = 1e-4
 saved_model_path = None
 epochs = 0
 epochs_finished = 0
@@ -73,7 +73,7 @@ else:
 saved_model_path = args.saved_model
 
 if args.lr == None:
-    print('Using default lr=1e-3')
+    print('Using default lr=1e-4')
 else:
     lr = args.lr
     print(f'Using lr from command: {lr}')
@@ -116,6 +116,8 @@ if args.loss == 0:
     loss_fn = loss_function.CrossEntropyLoss_Origin()
 elif args.loss == 1:
     loss_fn = loss_function.CrossEntropyLoss_for_FA_CE()
+elif args.loss == 2:
+    loss_fn = loss_function.CrossEntropyLoss_for_FA_CE_VNV()
 else:
     assert False, ('损失函数代号不在范围内')
 print(f'Using loss_function: {loss_fn.__class__.__name__}')
@@ -130,11 +132,14 @@ if saved_model_path != None:
     model = torch.load(saved_model_path)
 else:
     print('raw model')
+    
+model = model.cuda()
 model = nn.DataParallel(model)
-model = model.to(device)
+# model = model.to(device)
 
+loss_fn = loss_fn.cuda()
 loss_fn = nn.DataParallel(loss_fn)
-loss_fn = loss_fn.to(device)
+# loss_fn = loss_fn.to(device)
 
 
 optimizer = torch.optim.Adam(params=model.parameters(), lr=lr)
@@ -164,7 +169,7 @@ train_dataloader = DataLoader(train_dataloader, batch_size=BATCH_SIZE*len(device
 valid_dataloader = DataLoader(valid_dataloader, batch_size=BATCH_SIZE*len(device_ids), shuffle=True)
 
 
-# In[ ]:
+# In[6]:
 
 
 # 一个epoch的训练+测试
@@ -175,8 +180,8 @@ def train(dataloader, model, loss_fn, optimizer, scheduler, out_floor):
     loss_total = 0
     
     for batch, (X, y) in tqdm(enumerate(dataloader)): # 每次返回一个batch
-        X, y = X.to(device), y.to(device)
-        # X, y = X.cuda(device=device_ids[0]), y.cuda(device=device_ids[0])
+        # X, y = X.to(device), y.to(device)
+        X, y = X.cuda(device=device_ids[0]), y.cuda(device=device_ids[0])
         # Compute prediction error
         pred = model(X, out_floor)
         
@@ -185,11 +190,17 @@ def train(dataloader, model, loss_fn, optimizer, scheduler, out_floor):
         else:
             # downsample y
             y_downsample = utils.downsample(y, out_floor)
+            # print(pred.shape, y_downsample.shape)
             loss = loss_fn(pred, y_downsample)
             
-        loss = loss.mean()
-        loss_total += loss.item()
+        # 对于某些特殊的损失函数：
+        if args.loss == 2:
+            loss = (loss[0].sum()+loss[2].sum())/(loss[1].sum()+loss[3].sum())
+        elif args.loss in [0,1]:
+            loss = loss.sum()
             
+        loss_total += loss.item()
+        
         # Backpropagation
         optimizer.zero_grad()
         loss.backward()
@@ -211,12 +222,13 @@ def test(dataloader, model, loss_fn, out_floor):
 
         model.eval()
         test_loss = 0
+        test_loss_v, test_loss_nv = 0, 0
         oa_avg, vr_avg, vfa_avg, rpa_avg, rca_avg = 0, 0, 0, 0, 0
     
     
         for X, y in dataloader:
-            X, y = X.to(device), y.to(device) # single-gpu
-            # X, y = X.cuda(device=device_ids[0]), y.cuda(device=device_ids[0])
+            # X, y = X.to(device), y.to(device)
+            X, y = X.cuda(device=device_ids[0]), y.cuda(device=device_ids[0])
             Xpred = model(X, out_floor)
             Xout = utils.salience_to_output(Xpred, threshold=threshold)
             
@@ -224,13 +236,21 @@ def test(dataloader, model, loss_fn, out_floor):
                 loss = loss_fn(Xpred, y)
                 oa, vr, vfa, rpa, rca = evaluate.evaluate(Xout, y, out_floor)
             else:
-                # downsample y
                 y_downsample = utils.downsample(y, out_floor)
                 loss = loss_fn(Xpred, y_downsample)
                 oa, vr, vfa, rpa, rca = evaluate.evaluate(Xout, y_downsample, out_floor)
+                
+            if args.loss == 2:
+                loss_gather = (loss[0].sum()+loss[2].sum())/(loss[1].sum()+loss[3].sum())
+                loss_v_gather = loss[0].sum()/loss[1].sum()
+                loss_nv_gather = loss[2].sum()/loss[3].sum()
+            elif args.loss in [0,1]:
+                loss_gather = loss.sum()
             
-            loss = loss.mean()
-            test_loss += loss.item()
+            test_loss += loss_gather.item()
+            test_loss_v += loss_v_gather.item()
+            test_loss_nv += loss_nv_gather.item()
+            
             oa_avg += oa
             vr_avg += vr
             vfa_avg += vfa
@@ -238,6 +258,8 @@ def test(dataloader, model, loss_fn, out_floor):
             rca_avg += rca
             
     test_loss /= batch_num # 每张图的loss
+    test_loss_v /= batch_num
+    test_loss_nv /= batch_num
     
     oa_avg /= batch_num
     vr_avg /= batch_num
@@ -248,7 +270,7 @@ def test(dataloader, model, loss_fn, out_floor):
     print(f"Test Error: Avg loss: {test_loss:.4f} \n")
     print(f"Test OA\t{oa_avg:.4f}\tVR\t{vr_avg:.4f}\tVFA\t{vfa_avg:.4f}\tRPA\t{rpa_avg:.4f}\tRCA\t{rca_avg:.4f}\n")
     
-    return test_loss, oa_avg, vr_avg, vfa_avg, rpa_avg, rca_avg
+    return (test_loss, test_loss_v, test_loss_nv), oa_avg, vr_avg, vfa_avg, rpa_avg, rca_avg
 
 
 # In[ ]:
@@ -259,6 +281,8 @@ def test(dataloader, model, loss_fn, out_floor):
 
 train_loss_list = []
 valid_loss_list = []
+valid_loss_v_list = []
+valid_loss_nv_list = []
 best_oa = 0
 
 for t in range(epochs_finished, epochs_finished+epochs):
@@ -267,16 +291,30 @@ for t in range(epochs_finished, epochs_finished+epochs):
     valid_loss, oa, _, _, _, _ = test(valid_dataloader, model, loss_fn, num_floor)
 
     train_loss_list.append(train_loss)
-    valid_loss_list.append(valid_loss)
-    
-    scheduler_stop.step(valid_loss)
+    if args.loss in [0,1]:
+        valid_loss_list.append(valid_loss)
+        scheduler_stop.step(valid_loss)
+    elif args.loss == 2:
+        valid_loss_list.append(valid_loss[0])
+        valid_loss_v_list.append(valid_loss[1])
+        valid_loss_nv_list.append(valid_loss[2])
+        scheduler_stop.step(valid_loss[0])
     
     if optimizer.state_dict()['param_groups'][0]['lr']<=0:
         print(f'Early stop after {t+1} epochs.')
         break
     
-    plt.plot(range(1,len(train_loss_list)+1), train_loss_list, c='b')
-    plt.plot(range(1,len(valid_loss_list)+1), valid_loss_list, c='r')
+    if args.loss in [0,1]:
+        plt.plot(range(1,len(train_loss_list)+1), train_loss_list, c='b')
+        plt.plot(range(1,len(valid_loss_list)+1), valid_loss_list, c='r')
+        plt.legend(['train loss', 'valid loss'])
+    elif args.loss == 2:
+        plt.plot(range(1,len(train_loss_list)+1), train_loss_list, c='b')
+        plt.plot(range(1,len(valid_loss_list)+1), valid_loss_list, c='r')
+        plt.plot(range(1,len(valid_loss_list)+1), valid_loss_v_list, c='orange')
+        plt.plot(range(1,len(valid_loss_list)+1), valid_loss_nv_list, c='purple')
+        plt.legend(['train loss', 'valid loss(OA)', 'valid loss(V)', 'valid loss(NV)'])
+    
     plt.savefig(os.path.join(save_dir, 'loss.png'))
     
     # 保存最优模型
@@ -289,7 +327,7 @@ for t in range(epochs_finished, epochs_finished+epochs):
 print("Done!")
 
 
-# In[3]:
+# In[20]:
 
 
 try:

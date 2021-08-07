@@ -98,29 +98,26 @@ class UNet(nn.Module):
         self.Up_Conv = nn.ModuleList([up_conv(self.channel_layers[i]*2) for i in range(3)])
         # 64*2 128*2 256*2
         
+        self.SoftmaxLayer = nn.Softmax(dim=2)
+        
     def forward(self, x, out_floor):
         save_for_concat = []
         x = self.DownConv0(x)
-        #print(x.shape)
         save_for_concat.append(x)
         x = self.MaxPool(x)
         x = self.DownConv1(x)
-        #print(x.shape)
         save_for_concat.append(x)
         x = self.MaxPool(x)
         x = self.DownConv2(x)
-        #print(x.shape)
         save_for_concat.append(x)
         x = self.MaxPool(x)
         x = self.DownConv3(x)
-        
-        #print('down finish', x.shape)
-        #print('save_for_concat:', [array.shape for array in save_for_concat])
         
         for floor in range(3,-1,-1): # floor: 3 2 1 0
             #print(f'[floor = {floor}]')
             if out_floor == floor:
                 x = self.GetOut[floor](x)
+                x = self.SoftmaxLayer(x)
                 return x
             else:
                 x = self.Up_T_Conv[floor-1](x)
@@ -134,16 +131,6 @@ class UNet(nn.Module):
                 x = self.Up_Conv[floor-1](torch.cat((save_for_concat[floor-1], x), dim=1)) # 可能有维数问题
                 #print(x.shape)
 
-
-# test_x = torch.rand((16,6,360,120))
-# test_x = test_x.to('cuda')
-# 
-# model = UNet('cuda').to('cuda')
-# pred = model(test_x, 3) # argument2=0/1/2/3均能通过测试
-# 
-# print(pred.shape)
-# 
-# # one-hot转为标签，用torch.argmax
 
 # In[28]:
 
