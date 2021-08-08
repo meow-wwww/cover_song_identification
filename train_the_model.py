@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # coding: utf-8
 
-# In[1]:
+# In[11]:
 
 
 import torch
@@ -118,6 +118,8 @@ elif args.loss == 1:
     loss_fn = loss_function.CrossEntropyLoss_for_FA_CE()
 elif args.loss == 2:
     loss_fn = loss_function.CrossEntropyLoss_for_FA_CE_VNV()
+elif args.loss == 3:
+    loss_fn = loss_function.CrossEntropyLoss_for_FA_CE_TF()
 else:
     assert False, ('损失函数代号不在范围内')
 print(f'Using loss_function: {loss_fn.__class__.__name__}')
@@ -169,7 +171,7 @@ train_dataloader = DataLoader(train_dataloader, batch_size=BATCH_SIZE*len(device
 valid_dataloader = DataLoader(valid_dataloader, batch_size=BATCH_SIZE*len(device_ids), shuffle=True)
 
 
-# In[6]:
+# In[1]:
 
 
 # 一个epoch的训练+测试
@@ -194,7 +196,7 @@ def train(dataloader, model, loss_fn, optimizer, scheduler, out_floor):
             loss = loss_fn(pred, y_downsample)
             
         # 对于某些特殊的损失函数：
-        if args.loss == 2:
+        if args.loss in [2,3]:
             loss = (loss[0].sum()+loss[2].sum())/(loss[1].sum()+loss[3].sum())
         elif args.loss in [0,1]:
             loss = loss.sum()
@@ -223,6 +225,7 @@ def test(dataloader, model, loss_fn, out_floor):
         model.eval()
         test_loss = 0
         test_loss_v, test_loss_nv = 0, 0
+        test_loss_f, test_loss_t = 0, 0
         oa_avg, vr_avg, vfa_avg, rpa_avg, rca_avg = 0, 0, 0, 0, 0
     
     
@@ -230,7 +233,7 @@ def test(dataloader, model, loss_fn, out_floor):
             # X, y = X.to(device), y.to(device)
             X, y = X.cuda(device=device_ids[0]), y.cuda(device=device_ids[0])
             Xpred = model(X, out_floor)
-            Xout = utils.salience_to_output(Xpred, threshold=threshold)
+            Xout = utils.salience_to_output(Xpred.clone().detach(), threshold=threshold)
             
             if out_floor == 0:
                 loss = loss_fn(Xpred, y)
@@ -244,12 +247,19 @@ def test(dataloader, model, loss_fn, out_floor):
                 loss_gather = (loss[0].sum()+loss[2].sum())/(loss[1].sum()+loss[3].sum())
                 loss_v_gather = loss[0].sum()/loss[1].sum()
                 loss_nv_gather = loss[2].sum()/loss[3].sum()
+                test_loss_v += loss_v_gather.item()
+                test_loss_nv += loss_nv_gather.item()
+            elif args.loss == 3:
+                loss_gather = (loss[0].sum()+loss[2].sum())/(loss[1].sum()+loss[3].sum())
+                loss_f_gather = loss[0].sum()/loss[1].sum()
+                loss_t_gather = loss[2].sum()/loss[3].sum()
+                test_loss_f += loss_f_gather.item()
+                test_loss_t += loss_t_gather.item()
             elif args.loss in [0,1]:
                 loss_gather = loss.sum()
             
             test_loss += loss_gather.item()
-            test_loss_v += loss_v_gather.item()
-            test_loss_nv += loss_nv_gather.item()
+            
             
             oa_avg += oa
             vr_avg += vr
@@ -260,6 +270,8 @@ def test(dataloader, model, loss_fn, out_floor):
     test_loss /= batch_num # 每张图的loss
     test_loss_v /= batch_num
     test_loss_nv /= batch_num
+    test_loss_f /= batch_num
+    test_loss_t /= batch_num
     
     oa_avg /= batch_num
     vr_avg /= batch_num
@@ -270,7 +282,10 @@ def test(dataloader, model, loss_fn, out_floor):
     print(f"Test Error: Avg loss: {test_loss:.4f} \n")
     print(f"Test OA\t{oa_avg:.4f}\tVR\t{vr_avg:.4f}\tVFA\t{vfa_avg:.4f}\tRPA\t{rpa_avg:.4f}\tRCA\t{rca_avg:.4f}\n")
     
-    return (test_loss, test_loss_v, test_loss_nv), oa_avg, vr_avg, vfa_avg, rpa_avg, rca_avg
+    if args.loss in [0,1,2]:
+        return (test_loss, test_loss_v, test_loss_nv), oa_avg, vr_avg, vfa_avg, rpa_avg, rca_avg
+    elif args.loss in [3]:
+        return (test_loss, test_loss_f, test_loss_t), oa_avg, vr_avg, vfa_avg, rpa_avg, rca_avg
 
 
 # In[ ]:
@@ -283,6 +298,9 @@ train_loss_list = []
 valid_loss_list = []
 valid_loss_v_list = []
 valid_loss_nv_list = []
+valid_loss_f_list = []
+valid_loss_t_list = []
+
 best_oa = 0
 
 for t in range(epochs_finished, epochs_finished+epochs):
@@ -299,6 +317,11 @@ for t in range(epochs_finished, epochs_finished+epochs):
         valid_loss_v_list.append(valid_loss[1])
         valid_loss_nv_list.append(valid_loss[2])
         scheduler_stop.step(valid_loss[0])
+    elif args.loss == 3:
+        valid_loss_list.append(valid_loss[0])
+        valid_loss_f_list.append(valid_loss[1])
+        valid_loss_t_list.append(valid_loss[2])
+        scheduler_stop.step(valid_loss[0])
     
     if optimizer.state_dict()['param_groups'][0]['lr']<=0:
         print(f'Early stop after {t+1} epochs.')
@@ -309,11 +332,17 @@ for t in range(epochs_finished, epochs_finished+epochs):
         plt.plot(range(1,len(valid_loss_list)+1), valid_loss_list, c='r')
         plt.legend(['train loss', 'valid loss'])
     elif args.loss == 2:
-        plt.plot(range(1,len(train_loss_list)+1), train_loss_list, c='b')
-        plt.plot(range(1,len(valid_loss_list)+1), valid_loss_list, c='r')
-        plt.plot(range(1,len(valid_loss_list)+1), valid_loss_v_list, c='orange')
-        plt.plot(range(1,len(valid_loss_list)+1), valid_loss_nv_list, c='purple')
+        plt.plot(range(1,len(train_loss_list)+1), train_loss_list, 'b')
+        plt.plot(range(1,len(valid_loss_list)+1), valid_loss_list, 'r')
+        plt.plot(range(1,len(valid_loss_list)+1), valid_loss_v_list, 'c--')
+        plt.plot(range(1,len(valid_loss_list)+1), valid_loss_nv_list, 'g--')
         plt.legend(['train loss', 'valid loss(OA)', 'valid loss(V)', 'valid loss(NV)'])
+    elif args.loss == 3:
+        plt.plot(range(1,len(train_loss_list)+1), train_loss_list, 'b')
+        plt.plot(range(1,len(valid_loss_list)+1), valid_loss_list, 'r')
+        plt.plot(range(1,len(valid_loss_list)+1), valid_loss_f_list, 'c--')
+        plt.plot(range(1,len(valid_loss_list)+1), valid_loss_t_list, 'g--')
+        plt.legend(['train loss', 'valid loss(OA)', 'valid loss(False)', 'valid loss(True)'])
     
     plt.savefig(os.path.join(save_dir, 'loss.png'))
     
@@ -325,15 +354,6 @@ for t in range(epochs_finished, epochs_finished+epochs):
             torch.save(model, os.path.join(save_dir, f'model_floor{num_floor}_best.pth'))
     
 print("Done!")
-
-
-# In[20]:
-
-
-try:
-    get_ipython().system('jupyter nbconvert --to python train_the_model.ipynb')
-except:
-    pass
 
 
 # In[ ]:

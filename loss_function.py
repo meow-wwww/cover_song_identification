@@ -137,7 +137,7 @@ import utils
 
 class CrossEntropyLoss_for_FA_CE_TF(nn.Module):
     def __init__(self):
-        super(CrossEntropyLoss_for_FA_CE_VNV, self).__init__()
+        super(CrossEntropyLoss_for_FA_CE_TF, self).__init__()
     def forward(self, output, one_hot):
         '''
         output: network output(not softmax yet)
@@ -150,8 +150,8 @@ class CrossEntropyLoss_for_FA_CE_TF(nn.Module):
         sm = output
         
         # 预测结果 T or F
-        Xout = utils.salience_to_output(Xpred, threshold=threshold)
-        #
+        Xout = utils.salience_to_output(output.clone().detach(), threshold=0.05).to(torch.int32)
+        cmp_time = (Xout != one_hot).to(torch.int32).sum(dim=1).bool().to(torch.int32)
         
         # 对one-hot进行处理，没有label的全零列改成1/f
 
@@ -164,7 +164,15 @@ class CrossEntropyLoss_for_FA_CE_TF(nn.Module):
         loss_all = (-torch.log(sm)*one_hot_float).sum() # scalar tensor
         num_all = output.shape[2]*output.shape[0]
         # ----------------------------------------------------------------------
-        none_zero_lines_num = none_zero_lines.sum()
+        loss_time = (-torch.log(sm)*one_hot_float).sum(dim=1) # scalar tensor
+        
+        False_loss = (loss_time * cmp_time).sum()
+        True_loss = loss_time.sum() - False_loss
+        False_num = cmp_time.sum()
+        True_num = num_all - False_num
+        
+        # ----------------------------------------------------------------------
+        '''none_zero_lines_num = none_zero_lines.sum()
         if none_zero_lines_num == 0: # 全是unvoicing
             loss_voicing = loss_all*0
             num_voicing = loss_all*0
@@ -173,22 +181,13 @@ class CrossEntropyLoss_for_FA_CE_TF(nn.Module):
             num_voicing = none_zero_lines_num
             
         loss_unvoicing = loss_all - loss_voicing
-        num_unvoicing = loss_all*0 + (num_all - num_voicing)
+        num_unvoicing = loss_all*0 + (num_all - num_voicing)'''
         
-        return loss_voicing, num_voicing, loss_unvoicing, num_unvoicing
-
-
-# In[10]:
-
-
-try:
-    get_ipython().system('jupyter nbconvert --to python loss_function.ipynb')
-except:
-    pass
+        return False_loss, False_num, True_loss, True_num
 
 
 # In[ ]:
 
 
-
+# hahaha
 
