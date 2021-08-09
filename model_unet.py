@@ -3,7 +3,7 @@
 
 # # U-Net
 
-# In[3]:
+# In[2]:
 
 
 import numpy as np
@@ -11,7 +11,7 @@ import torch
 import torch.nn as nn
 
 
-# In[4]:
+# In[ ]:
 
 
 class down_conv(nn.Module):
@@ -73,7 +73,7 @@ class up_conv(nn.Module):
         return x
 
 
-# In[22]:
+# In[4]:
 
 
 class UNet(nn.Module):
@@ -132,11 +132,18 @@ class UNet(nn.Module):
                 #print(x.shape)
 
 
-# In[28]:
+# In[5]:
 
 
-# In[ ]:
+'''class UNet(nn.Module):
+    def __init__(self, UNet_core):
+        super(UNet, self).__init__()
+        self.l1 = nn.Sequential(*list(UNet_core.children())[:-1]).to('cuda:0')
+        self.last = list(UNet_core.children())[-1]
 
-
-
+    def forward(self, x):
+        x = self.l1(x)
+        x = x.view(x.size()[0], -1)
+        x = self.last(x)
+        return x'''
 

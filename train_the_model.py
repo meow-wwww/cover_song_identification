@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # coding: utf-8
 
-# In[11]:
+# In[1]:
 
 
 import torch
@@ -90,6 +90,7 @@ device_ids = list(map(lambda x: int(x), args.gpu.split(',')))
 print(f'using device_ids: {device_ids}')
 os.environ["CUDA_VISIBLE_DEVICES"] = args.gpu
 print(f'device count: {torch.cuda.device_count()}')
+print(f'current device: {torch.cuda.current_device()}')
 
 device = torch.device("cuda:0")
 
@@ -129,20 +130,20 @@ print(f'Using loss_function: {loss_fn.__class__.__name__}')
 
 
 model = model_unet.UNet()
-if saved_model_path != None:
-    print(f'loading model from {saved_model_path}...')
-    model = torch.load(saved_model_path)
-else:
-    print('raw model')
-    
 model = model.cuda()
 model = nn.DataParallel(model)
 # model = model.to(device)
 
+if saved_model_path != None:
+    print(f'loading model from {saved_model_path}...')
+    #model = torch.load(saved_model_path)
+    model.load_state_dict(torch.load(saved_model_path))
+else:
+    print('raw model')
+
 loss_fn = loss_fn.cuda()
 loss_fn = nn.DataParallel(loss_fn)
 # loss_fn = loss_fn.to(device)
-
 
 optimizer = torch.optim.Adam(params=model.parameters(), lr=lr)
 scheduler_decay = torch.optim.lr_scheduler.ExponentialLR(optimizer, gamma=0.94, verbose=True)
@@ -208,12 +209,13 @@ def train(dataloader, model, loss_fn, optimizer, scheduler, out_floor):
         loss.backward()
         optimizer.step()
 
-        if (batch+1) % 100 == 0:
+        if (batch+1) % 50 == 0:
             loss, current = loss.item(), (batch + 1) * len(X)
             print(f"Avg loss: {loss:.4f}  [{current:>5d}/{size:>5d}]")
             
     scheduler.step()
     return loss_total/batch_num
+
             
 def test(dataloader, model, loss_fn, out_floor):
     
@@ -351,7 +353,8 @@ for t in range(epochs_finished, epochs_finished+epochs):
         with torch.no_grad():
             print(f'[in epoch {t+1}, OA got new best: from {best_oa:.4f} to {oa:.4f}. Will save the model]')
             best_oa = oa
-            torch.save(model, os.path.join(save_dir, f'model_floor{num_floor}_best.pth'))
+            # torch.save(model, os.path.join(save_dir, f'model_floor{num_floor}_best.pth'))
+            torch.save(model.state_dict(), os.path.join(save_dir, f'model_floor{num_floor}_best.pth'))
     
 print("Done!")
 
