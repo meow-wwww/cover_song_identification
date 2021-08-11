@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # coding: utf-8
 
-# In[3]:
+# In[1]:
 
 
 #!/usr/bin/env python
@@ -50,7 +50,7 @@ class CrossEntropyLoss_Origin(nn.Module):
         '''
         output = output.squeeze(dim=1) # output: [N, f, t]
         
-        sm = output
+        sm = output + 1e-20
 
         none_zero_lines_num = one_hot.bool().any(1).sum()
         
@@ -76,7 +76,43 @@ class CrossEntropyLoss_for_FA_CE(nn.Module):
         [OUTPUT]是一个batch中不同样本的均值
         '''
         output = output.squeeze(dim=1) # output: [N, f, t]
-        sm = output
+        sm = output + 1e-20
+        
+        # 对one-hot进行处理，没有label的全零列改成1/360
+
+        none_zero_lines = one_hot.bool().any(1).reshape(-1)
+        one_hot = one_hot.float()
+        index0 = torch.tensor([list(range(one_hot.shape[0]))]*one_hot.shape[2]).T.reshape(-1)[none_zero_lines == False]
+        index2 = torch.tensor([list(range(one_hot.shape[2]))]*one_hot.shape[0]).reshape(-1)[none_zero_lines == False]
+        one_hot[index0, :, index2] = 1/one_hot.shape[1]
+        
+        return (-torch.log(sm)*one_hot).sum()/(output.shape[2]*output.shape[0])
+
+
+# In[ ]:
+
+
+class CrossEntropyLoss_for_FA_SQ(nn.Module):
+    def __init__(self):
+        super(CrossEntropyLoss_for_FA_CE, self).__init__()
+        return
+    def forward(self, output, one_hot):
+        '''
+        output: network output(not softmax yet)
+                shape: [N, 1, f, t]
+        one_hot: ground truth(has not been gaussian blurred)
+                shape: [N, f, t]
+        [OUTPUT]是一个batch中不同样本的均值
+        '''
+        output = output.squeeze(dim=1) # output: [N, f, t]
+        sm = output + 1e-20
+        
+        none_zero_lines_num = one_hot.bool().any(1).sum()
+        
+        if none_zero_lines_num == 0:
+            return (-torch.log(sm)*one_hot).sum()*0
+        else:
+            return (-torch.log(sm)*one_hot).sum()/none_zero_lines_num
         
         # 对one-hot进行处理，没有label的全零列改成1/360
 
@@ -104,7 +140,7 @@ class CrossEntropyLoss_for_FA_CE_VNV(nn.Module):
         [OUTPUT]是一个batch中不同样本的均值
         '''
         output = output.squeeze(dim=1) # output: [N, f, t]
-        sm = output
+        sm = output + 1e-20
         
         # 对one-hot进行处理，没有label的全零列改成1/f
 
@@ -147,7 +183,7 @@ class CrossEntropyLoss_for_FA_CE_TF(nn.Module):
         [OUTPUT]是一个batch中不同样本的均值
         '''
         output = output.squeeze(dim=1) # output: [N, f, t]
-        sm = output
+        sm = output + 1e-20
         
         # 预测结果 T or F
         Xout = utils.salience_to_output(output.clone().detach(), threshold=0.05).to(torch.int32)
