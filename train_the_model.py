@@ -189,18 +189,25 @@ def train(dataloader, model, loss_fn, optimizer, scheduler, out_floor):
         pred = model(X, out_floor)
         
         if out_floor == 0:
-            loss = loss_fn(pred, y)
+            loss_gpus = loss_fn(pred, y)
         else:
             # downsample y
             y_downsample = utils.downsample(y, out_floor)
-            # print(pred.shape, y_downsample.shape)
-            loss = loss_fn(pred, y_downsample)
+            loss_gpus = loss_fn(pred, y_downsample)
             
         # 对于某些特殊的损失函数：
         if args.loss in [2,3]:
-            loss = (loss[0].sum()+loss[2].sum())/(loss[1].sum()+loss[3].sum())
+            loss = (loss_gpus[0].sum()+loss_gpus[2].sum())/(loss_gpus[1].sum()+loss_gpus[3].sum())
         elif args.loss in [0,1]:
-            loss = loss.sum()
+            loss = loss_gpus.sum()
+            
+        if loss.item() != loss.item():
+            print('Train NaN!')
+            print(loss_gpus)
+            print('====================================================')
+            torch.save((X,y), os.path.join(save_dir, 'Xy_nan.pt'))
+            torch.save(model.state_dict(), os.path.join(save_dir, 'model_nan.pth'))
+            exit()
             
         loss_total += loss.item()
         
@@ -259,6 +266,14 @@ def test(dataloader, model, loss_fn, out_floor):
                 test_loss_t += loss_t_gather.item()
             elif args.loss in [0,1]:
                 loss_gather = loss.sum()
+                
+            if loss_gather.item() != loss_gather.item():
+                print('Test NaN!')
+                print(loss)
+                print('====================================================')
+                torch.save((X,y), os.path.join(save_dir, 'Xy_nan.pt'))
+                torch.save(model.state_dict(), os.path.join(save_dir, 'model_nan.pth'))
+                exit()
             
             test_loss += loss_gather.item()
             
