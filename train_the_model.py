@@ -305,6 +305,10 @@ valid_loss_t_list = []
 
 best_oa = 0
 
+_, oa, _, _, _, _ = test(valid_dataloader, model, loss_fn, num_floor)
+print(f'原始OA: {oa:.4f}.')
+best_oa = oa
+
 for t in range(epochs_finished, epochs_finished+epochs):
     print(f"Epoch {t+1}\n-------------------------------{datetime.datetime.now()}")
     train_loss = train(train_dataloader, model, loss_fn, optimizer, scheduler_decay, num_floor)

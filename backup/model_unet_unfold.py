@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # coding: utf-8
 
-# # U-Net
+# # U-Net unfinished!
 
 # In[3]:
 
@@ -54,67 +54,58 @@ class UNet(nn.Module):
         )
         
         # 64*2->1 128*2->1 256*2->1 512->1
-        self.GetOut = [
-            nn.Sequential(
-                nn.BatchNorm2d(128),
-                nn.Conv2d(in_channels=128, out_channels=1, kernel_size=3, stride=1, padding=(1,1), bias=False),
-                nn.ReLU(inplace=True)
-            ),
-            nn.Sequential(
-                nn.BatchNorm2d(256),
-                nn.Conv2d(in_channels=256, out_channels=1, kernel_size=3, stride=1, padding=(1,1), bias=False),
-                nn.ReLU(inplace=True)
-            ),
-            nn.Sequential(
-                nn.BatchNorm2d(512),
-                nn.Conv2d(in_channels=512, out_channels=1, kernel_size=3, stride=1, padding=(1,1), bias=False),
-                nn.ReLU(inplace=True)
-            ),
-            nn.Sequential(
-                nn.BatchNorm2d(512),
-                nn.Conv2d(in_channels=512, out_channels=1, kernel_size=3, stride=1, padding=(1,1), bias=False),
-                nn.ReLU(inplace=True)
-            )
-        ]
+        self.GetOut0 = nn.Sequential(
+            nn.BatchNorm2d(128),
+            nn.Conv2d(in_channels=128, out_channels=1, kernel_size=3, stride=1, padding=(1,1), bias=False),
+            nn.ReLU(inplace=True)
+        )
+        self.GetOut1 = nn.Sequential(
+            nn.BatchNorm2d(256),
+            nn.Conv2d(in_channels=256, out_channels=1, kernel_size=3, stride=1, padding=(1,1), bias=False),
+            nn.ReLU(inplace=True)
+        )
+        self.GetOut2 = nn.Sequential(
+            nn.BatchNorm2d(512),
+            nn.Conv2d(in_channels=512, out_channels=1, kernel_size=3, stride=1, padding=(1,1), bias=False),
+            nn.ReLU(inplace=True)
+        )
+        self.GetOut3 = nn.Sequential(
+            nn.BatchNorm2d(512),
+            nn.Conv2d(in_channels=512, out_channels=1, kernel_size=3, stride=1, padding=(1,1), bias=False),
+            nn.ReLU(inplace=True)
+        )
         
         # 'placeholder' 128*2->64 256*2->128 512->256
-        self.Up_T_Conv = [
-            'placeholder',
-            nn.Sequential(
-                nn.BatchNorm2d(num_features=256),
-                nn.ConvTranspose2d(in_channels=256, out_channels=64, kernel_size=(2,2), stride=(2,2), padding=0) # (1,1))
-                
-            ),
-            nn.Sequential(
-                nn.BatchNorm2d(num_features=512),
-                nn.ConvTranspose2d(in_channels=512, out_channels=128, kernel_size=(2,2), stride=(2,2), padding=0) # (1,1))
-                
-            ),
-            nn.Sequential(
-                nn.BatchNorm2d(num_features=512),
-                nn.ConvTranspose2d(in_channels=512, out_channels=256, kernel_size=(2,2), stride=(2,2), padding=0) # (1,1))
-                
-            )
-        ]
+        self.Up_T_Conv1 = nn.Sequential(
+            nn.BatchNorm2d(num_features=256),
+            nn.ConvTranspose2d(in_channels=256, out_channels=64, kernel_size=(2,2), stride=(2,2), padding=0) # (1,1))
+        )
+        self.Up_T_Conv2 = nn.Sequential(
+            nn.BatchNorm2d(num_features=512),
+            nn.ConvTranspose2d(in_channels=512, out_channels=128, kernel_size=(2,2), stride=(2,2), padding=0) # (1,1))
+        )
+        self.Up_T_Conv3 = nn.Sequential(
+            nn.BatchNorm2d(num_features=512),
+            nn.ConvTranspose2d(in_channels=512, out_channels=256, kernel_size=(2,2), stride=(2,2), padding=0) # (1,1))
+        )
         
         # 64*2 128*2 256*2
-        self.Up_Conv = [
-            nn.Sequential(
-                nn.BatchNorm2d(num_features=128),
-                nn.Conv2d(in_channels=128, out_channels=128, kernel_size=3, stride=1, padding=(1,1), bias=False),
-                nn.ReLU(inplace=True)
-            ),
-            nn.Sequential(
-                nn.BatchNorm2d(num_features=256),
-                nn.Conv2d(in_channels=256, out_channels=256, kernel_size=3, stride=1, padding=(1,1), bias=False),
-                nn.ReLU(inplace=True)
-            ),
-            nn.Sequential(
-                nn.BatchNorm2d(num_features=512),
-                nn.Conv2d(in_channels=512, out_channels=512, kernel_size=3, stride=1, padding=(1,1), bias=False),
-                nn.ReLU(inplace=True)
-            )
-        ]
+        self.Up_Conv0 = nn.Sequential(
+            nn.BatchNorm2d(num_features=128),
+            nn.Conv2d(in_channels=128, out_channels=128, kernel_size=3, stride=1, padding=(1,1), bias=False),
+            nn.ReLU(inplace=True)
+        )
+        self.Up_Conv1 = nn.Sequential(
+            nn.BatchNorm2d(num_features=256),
+            nn.Conv2d(in_channels=256, out_channels=256, kernel_size=3, stride=1, padding=(1,1), bias=False),
+            nn.ReLU(inplace=True)
+        )
+        self.Up_Conv2 = nn.Sequential(
+            nn.BatchNorm2d(num_features=512),
+            nn.Conv2d(in_channels=512, out_channels=512, kernel_size=3, stride=1, padding=(1,1), bias=False),
+            nn.ReLU(inplace=True)
+        )
+        self.SoftmaxLayer = nn.Softmax(dim=2)
         
     def forward(self, x, out_floor):
         save_for_concat = []
@@ -137,6 +128,7 @@ class UNet(nn.Module):
             #print(f'[floor = {floor}]')
             if out_floor == floor:
                 x = self.GetOut[floor](x)
+                x = self.SoftmaxLayer(x)
                 return x
             else:
                 x = self.Up_T_Conv[floor](x)
@@ -149,23 +141,3 @@ class UNet(nn.Module):
                     #print(f'no need to cut, x.shape = {x.shape}')
                 x = self.Up_Conv[floor-1](torch.cat((save_for_concat[floor-1], x), dim=1)) # 可能有维数问题
                 #print(x.shape)
-
-
-# test_x = torch.rand((16,6,360,120))
-# test_x = test_x.to('cuda')
-# 
-# model = UNet('cuda').to('cuda')
-# pred = model(test_x, 3) # argument2=0/1/2/3均能通过测试
-# 
-# print(pred.shape)
-# 
-# # one-hot转为标签，用torch.argmax
-
-# In[28]:
-
-
-# In[ ]:
-
-
-
-
