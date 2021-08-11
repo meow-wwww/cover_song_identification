@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # coding: utf-8
 
-# In[ ]:
+# In[1]:
 
 
 import torch
@@ -152,7 +152,7 @@ scheduler_stop = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min
 
 # In[ ]:
 
-
+'''
 # split data, generate train/test_dataloader
 
 train_fold_index_list = hparams.train_set_fold_index
@@ -170,9 +170,9 @@ valid_dataloader = data_generator.source_index_to_chunk_list(source_list=valid_f
 
 train_dataloader = DataLoader(train_dataloader, batch_size=BATCH_SIZE*len(device_ids), shuffle=True)
 valid_dataloader = DataLoader(valid_dataloader, batch_size=BATCH_SIZE*len(device_ids), shuffle=True)
+'''
 
-
-# In[ ]:
+# In[1]:
 
 
 # 一个epoch的训练+测试
@@ -189,25 +189,22 @@ def train(dataloader, model, loss_fn, optimizer, scheduler, out_floor):
         pred = model(X, out_floor)
         
         if out_floor == 0:
-            loss_gpus = loss_fn(pred, y)
+            loss = loss_fn(pred, y)
         else:
             # downsample y
             y_downsample = utils.downsample(y, out_floor)
-            loss_gpus = loss_fn(pred, y_downsample)
+            # print(pred.shape, y_downsample.shape)
+            loss = loss_fn(pred, y_downsample)
             
         # 对于某些特殊的损失函数：
         if args.loss in [2,3]:
-            loss = (loss_gpus[0].sum()+loss_gpus[2].sum())/(loss_gpus[1].sum()+loss_gpus[3].sum())
+            loss = (loss[0].sum()+loss[2].sum())/(loss[1].sum()+loss[3].sum())
         elif args.loss in [0,1]:
-            loss = loss_gpus.sum()
+            loss = loss.sum()
             
         if loss.item() != loss.item():
             print('Train NaN!')
-            print(loss_gpus)
-            print('====================================================')
-            torch.save((X,y), os.path.join(save_dir, 'Xy_nan.pt'))
-            torch.save(model.state_dict(), os.path.join(save_dir, 'model_nan.pth'))
-            exit()
+            torch.save((X,y), 'Xy.pt')
             
         loss_total += loss.item()
         
@@ -254,14 +251,14 @@ def test(dataloader, model, loss_fn, out_floor):
                 
             if args.loss == 2:
                 loss_gather = (loss[0].sum()+loss[2].sum())/(loss[1].sum()+loss[3].sum())
-                loss_v_gather = loss[0].sum()/loss[1].sum() if loss[1].sum() else 0
-                loss_nv_gather = loss[2].sum()/loss[3].sum() if loss[3].sum() else 0
+                loss_v_gather = loss[0].sum()/loss[1].sum()
+                loss_nv_gather = loss[2].sum()/loss[3].sum()
                 test_loss_v += loss_v_gather.item()
                 test_loss_nv += loss_nv_gather.item()
             elif args.loss == 3:
                 loss_gather = (loss[0].sum()+loss[2].sum())/(loss[1].sum()+loss[3].sum())
-                loss_f_gather = loss[0].sum()/loss[1].sum() if loss[1].sum() else 0
-                loss_t_gather = loss[2].sum()/loss[3].sum() if loss[3].sum() else 0
+                loss_f_gather = loss[0].sum()/loss[1].sum()
+                loss_t_gather = loss[2].sum()/loss[3].sum()
                 test_loss_f += loss_f_gather.item()
                 test_loss_t += loss_t_gather.item()
             elif args.loss in [0,1]:
@@ -269,11 +266,7 @@ def test(dataloader, model, loss_fn, out_floor):
                 
             if loss_gather.item() != loss_gather.item():
                 print('Test NaN!')
-                print(loss)
-                print('====================================================')
-                torch.save((X,y), os.path.join(save_dir, 'Xy_nan.pt'))
-                torch.save(model.state_dict(), os.path.join(save_dir, 'model_nan.pth'))
-                exit()
+                torch.save((X,y), 'Xy.pt')
             
             test_loss += loss_gather.item()
             
@@ -318,12 +311,55 @@ valid_loss_nv_list = []
 valid_loss_f_list = []
 valid_loss_t_list = []
 
+'''
 best_oa = 0
 
 _, oa, _, _, _, _ = test(valid_dataloader, model, loss_fn, num_floor)
 print(f'原始OA: {oa:.4f}.')
 best_oa = oa
+'''
 
+
+model.train()
+loss_total = 0
+    
+X, y = torch.load('Xy.pt')
+X, y = X.cuda(device=device_ids[0]), y.cuda(device=device_ids[0])
+print(X.shape, y.shape)
+# Compute prediction error
+pred = model(X, num_floor)
+if num_floor == 0:
+    loss = loss_fn(pred, y)
+else:
+    # downsample y
+    y_downsample = utils.downsample(y, num_floor)
+    # print(pred.shape, y_downsample.shape)
+    loss = loss_fn(pred, y_downsample)
+print(f'loss before gather:{loss}')
+# 对于某些特殊的损失函数：
+if args.loss in [2,3]:
+    loss = (loss[0].sum()+loss[2].sum())/(loss[1].sum()+loss[3].sum())
+elif args.loss in [0,1]:
+    loss = loss.sum()
+    
+print(f'loss after gather:{loss}')
+
+if loss.item() != loss.item():
+    print('Train NaN!')
+
+loss_total += loss.item()
+'''
+# Backpropagation
+optimizer.zero_grad()
+loss.backward()
+optimizer.step()
+
+if (batch+1) % 50 == 0:
+    loss, current = loss.item(), (batch + 1) * len(X)
+    print(f"Avg loss: {loss:.4f}  [{current:>5d}/{size:>5d}]")
+'''
+
+'''
 for t in range(epochs_finished, epochs_finished+epochs):
     print(f"Epoch {t+1}\n-------------------------------{datetime.datetime.now()}")
     train_loss = train(train_dataloader, model, loss_fn, optimizer, scheduler_decay, num_floor)
@@ -376,4 +412,10 @@ for t in range(epochs_finished, epochs_finished+epochs):
             torch.save(model.state_dict(), os.path.join(save_dir, f'model_floor{num_floor}_best.pth'))
     
 print("Done!")
+'''
+
+# In[ ]:
+
+
+
 
