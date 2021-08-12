@@ -216,7 +216,7 @@ def train(dataloader, model, loss_fn, optimizer, scheduler, out_floor):
         loss.backward()
         optimizer.step()
 
-        if (batch+1) % 50 == 0:
+        if (batch+1) % 100 == 0:
             loss, current = loss.item(), (batch + 1) * len(X)
             print(f"Avg loss: {loss:.4f}  [{current:>5d}/{size:>5d}]")
             
