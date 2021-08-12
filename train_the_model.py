@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # coding: utf-8
 
-# In[ ]:
+# In[1]:
 
 
 import torch
@@ -121,6 +121,8 @@ elif args.loss == 2:
     loss_fn = loss_function.CrossEntropyLoss_for_FA_CE_VNV()
 elif args.loss == 3:
     loss_fn = loss_function.CrossEntropyLoss_for_FA_CE_TF()
+elif args.loss == 4:
+    loss_fn = loss_function.CrossEntropyLoss_for_FA_CESQ_TF()
 else:
     assert False, ('损失函数代号不在范围内')
 print(f'Using loss_function: {loss_fn.__class__.__name__}')
@@ -157,6 +159,7 @@ scheduler_stop = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min
 
 train_fold_index_list = hparams.train_set_fold_index
 valid_fold_index_list = hparams.validation_set_fold_index
+test_fold_index_list = hparams.test_set_fold_index
 
 # prepare dataloader
 print(f'{datetime.datetime.now()} - Preparing train_dataloader...')
@@ -167,9 +170,14 @@ print(f'{datetime.datetime.now()} - Preparing valid_dataloader...')
 valid_dataloader = data_generator.source_index_to_chunk_list(source_list=valid_fold_index_list,
                                                              data_chunks_duration_in_bins=hparams.data_chunks_duration_in_bins,
                                                              data_chunks_overlap_in_bins=overlap)
+print(f'{datetime.datetime.now()} - Preparing test_dataloader...')
+test_dataloader = data_generator.source_index_to_chunk_list(source_list=test_fold_index_list,
+                                                             data_chunks_duration_in_bins=hparams.data_chunks_duration_in_bins,
+                                                             data_chunks_overlap_in_bins=overlap)
 
 train_dataloader = DataLoader(train_dataloader, batch_size=BATCH_SIZE*len(device_ids), shuffle=True)
 valid_dataloader = DataLoader(valid_dataloader, batch_size=BATCH_SIZE*len(device_ids), shuffle=True)
+test_dataloader = DataLoader(test_dataloader, batch_size=BATCH_SIZE*len(device_ids), shuffle=True)
 
 
 # In[ ]:
@@ -196,7 +204,7 @@ def train(dataloader, model, loss_fn, optimizer, scheduler, out_floor):
             loss_gpus = loss_fn(pred, y_downsample)
             
         # 对于某些特殊的损失函数：
-        if args.loss in [2,3]:
+        if args.loss in [2,3,4]:
             loss = (loss_gpus[0].sum()+loss_gpus[2].sum())/(loss_gpus[1].sum()+loss_gpus[3].sum())
         elif args.loss in [0,1]:
             loss = loss_gpus.sum()
@@ -258,7 +266,7 @@ def test(dataloader, model, loss_fn, out_floor):
                 loss_nv_gather = loss[2].sum()/loss[3].sum() if loss[3].sum() else 0
                 test_loss_v += loss_v_gather.item()
                 test_loss_nv += loss_nv_gather.item()
-            elif args.loss == 3:
+            elif args.loss in [3,4]:
                 loss_gather = (loss[0].sum()+loss[2].sum())/(loss[1].sum()+loss[3].sum())
                 loss_f_gather = loss[0].sum()/loss[1].sum() if loss[1].sum() else 0
                 loss_t_gather = loss[2].sum()/loss[3].sum() if loss[3].sum() else 0
@@ -301,7 +309,7 @@ def test(dataloader, model, loss_fn, out_floor):
     
     if args.loss in [0,1,2]:
         return (test_loss, test_loss_v, test_loss_nv), oa_avg, vr_avg, vfa_avg, rpa_avg, rca_avg
-    elif args.loss in [3]:
+    elif args.loss in [3,4]:
         return (test_loss, test_loss_f, test_loss_t), oa_avg, vr_avg, vfa_avg, rpa_avg, rca_avg
 
 
@@ -311,59 +319,92 @@ def test(dataloader, model, loss_fn, out_floor):
 # # 训练模型🌟
 # 多个epoch训练，每个epoch后在验证集上测试
 
+valid_oa_list = []
+test_oa_list = []
+
 train_loss_list = []
 valid_loss_list = []
+test_loss_list = []
+
 valid_loss_v_list = []
 valid_loss_nv_list = []
+test_loss_v_list = []
+test_loss_nv_list = []
+
 valid_loss_f_list = []
 valid_loss_t_list = []
+test_loss_f_list = []
+test_loss_t_list = []
 
 best_oa = 0
 
 _, oa, _, _, _, _ = test(valid_dataloader, model, loss_fn, num_floor)
-print(f'原始OA: {oa:.4f}.')
+print(f'验证集原始OA: {oa:.4f}.')
 best_oa = oa
 
 for t in range(epochs_finished, epochs_finished+epochs):
     print(f"Epoch {t+1}\n-------------------------------{datetime.datetime.now()}")
     train_loss = train(train_dataloader, model, loss_fn, optimizer, scheduler_decay, num_floor)
     valid_loss, oa, _, _, _, _ = test(valid_dataloader, model, loss_fn, num_floor)
+    test_loss, test_oa, _, _, _, _ = test(test_dataloader, model, loss_fn, num_floor)
 
     train_loss_list.append(train_loss)
+    valid_oa_list.append(oa)
+    test_oa_list.append(test_oa)
     if args.loss in [0,1]:
         valid_loss_list.append(valid_loss)
+        test_loss_list.append(test_loss)
         scheduler_stop.step(valid_loss)
     elif args.loss == 2:
         valid_loss_list.append(valid_loss[0])
         valid_loss_v_list.append(valid_loss[1])
         valid_loss_nv_list.append(valid_loss[2])
         scheduler_stop.step(valid_loss[0])
-    elif args.loss == 3:
+        test_loss_list.append(test_loss[0])
+        test_loss_v_list.append(test_loss[1])
+        test_loss_nv_list.append(test_loss[2])
+    elif args.loss in [3,4]:
         valid_loss_list.append(valid_loss[0])
         valid_loss_f_list.append(valid_loss[1])
         valid_loss_t_list.append(valid_loss[2])
         scheduler_stop.step(valid_loss[0])
+        test_loss_list.append(test_loss[0])
+        test_loss_f_list.append(test_loss[1])
+        test_loss_t_list.append(test_loss[2])
     
     if optimizer.state_dict()['param_groups'][0]['lr']<=0:
         print(f'Early stop after {t+1} epochs.')
         break
     
     if args.loss in [0,1]:
-        plt.plot(range(1,len(train_loss_list)+1), train_loss_list, c='b')
-        plt.plot(range(1,len(valid_loss_list)+1), valid_loss_list, c='r')
-        plt.legend(['train loss', 'valid loss'])
+        plt.plot(range(1,len(train_loss_list)+1), train_loss_list, 'y')
+        plt.plot(range(1,len(valid_loss_list)+1), valid_loss_list, 'm')
+        plt.plot(range(1,len(test_loss_list)+1), test_loss_list, 'r')
+        plt.plot(range(1, len(valid_oa_list)+1), valid_oa_list, 'b')
+        plt.plot(range(1, len(test_oa_list)+1), test_oa_list, 'b--')
+        plt.legend(['train loss', 'valid loss', 'test_loss','valid acc','test acc'])
     elif args.loss == 2:
-        plt.plot(range(1,len(train_loss_list)+1), train_loss_list, 'b')
-        plt.plot(range(1,len(valid_loss_list)+1), valid_loss_list, 'r')
-        plt.plot(range(1,len(valid_loss_list)+1), valid_loss_v_list, 'c--')
-        plt.plot(range(1,len(valid_loss_list)+1), valid_loss_nv_list, 'g--')
-        plt.legend(['train loss', 'valid loss(OA)', 'valid loss(V)', 'valid loss(NV)'])
-    elif args.loss == 3:
-        plt.plot(range(1,len(train_loss_list)+1), train_loss_list, 'b')
-        plt.plot(range(1,len(valid_loss_list)+1), valid_loss_list, 'r')
-        plt.plot(range(1,len(valid_loss_list)+1), valid_loss_f_list, 'c--')
-        plt.plot(range(1,len(valid_loss_list)+1), valid_loss_t_list, 'g--')
-        plt.legend(['train loss', 'valid loss(OA)', 'valid loss(False)', 'valid loss(True)'])
+        plt.plot(range(1,len(train_loss_list)+1), train_loss_list, 'y')
+        plt.plot(range(1,len(valid_loss_list)+1), valid_loss_list, 'm')
+        plt.plot(range(1,len(valid_loss_list)+1), valid_loss_v_list, 'm--')
+        plt.plot(range(1,len(valid_loss_list)+1), valid_loss_nv_list, 'm-.')
+        plt.plot(range(1,len(test_loss_list)+1), test_loss_list, 'r')
+        plt.plot(range(1,len(test_loss_list)+1), test_loss_v_list, 'r--')
+        plt.plot(range(1,len(test_loss_list)+1), test_loss_nv_list, 'r-.')
+        plt.plot(range(1, len(valid_oa_list)+1), valid_oa_list, 'b')
+        plt.plot(range(1, len(test_oa_list)+1), test_oa_list, 'b--')
+        plt.legend(['train loss', 'valid loss', 'valid loss(V)', 'valid loss(NV)', 'test loss', 'test loss(V)', 'test loss(NV)','valid acc','test acc'])
+    elif args.loss in [3,4]:
+        plt.plot(range(1,len(train_loss_list)+1), train_loss_list, 'y')
+        plt.plot(range(1,len(valid_loss_list)+1), valid_loss_list, 'm')
+        plt.plot(range(1,len(valid_loss_list)+1), valid_loss_f_list, 'm--')
+        plt.plot(range(1,len(valid_loss_list)+1), valid_loss_t_list, 'm-.')
+        plt.plot(range(1,len(test_loss_list)+1), test_loss_list, 'r')
+        plt.plot(range(1,len(test_loss_list)+1), test_loss_f_list, 'r--')
+        plt.plot(range(1,len(test_loss_list)+1), test_loss_t_list, 'r-.')
+        plt.plot(range(1, len(valid_oa_list)+1), valid_oa_list, 'b')
+        plt.plot(range(1, len(test_oa_list)+1), test_oa_list, 'b--')
+        plt.legend(['train loss', 'valid loss', 'valid loss(F)', 'valid loss(T)', 'test loss', 'test loss(F)', 'test loss(T)','valid acc','test acc'])
     
     plt.savefig(os.path.join(save_dir, 'loss.png'))
     
