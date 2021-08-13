@@ -53,6 +53,7 @@ parser.add_argument('-b', '--batch_size', type=int, help='batch_size')
 parser.add_argument('-o', '--overlap', type=int, help='切出训练数据时，跳步占全部长度的几分之一')
 parser.add_argument('-t','--threshold', type=float, help='生成结果用的阈值')
 parser.add_argument('--loss', type=int, help='损失函数')
+parser.add_argument('--vt', help='验证/测试集')
 
 args = parser.parse_args()
 
@@ -127,6 +128,14 @@ else:
     assert False, ('损失函数代号不在范围内')
 print(f'Using loss_function: {loss_fn.__class__.__name__}')
 
+assert args.vt[0]!=args.vt[1], ('验证集、测试集不能一样')
+assert args.vt[0] in '0123456789', ('验证集index out of range')
+assert args.vt[1] in '0123456789', ('测试集index out of range')
+valid_fold_index_list = [int(args.vt[0])]
+test_fold_index_list = [int(args.vt[1])]
+train_fold_index_list = [i for i in range(10) if (i not in valid_fold_index_list and i not in test_fold_index_list)]
+print(f'\ttrain: {train_fold_index_list}\n\tvalid: {valid_fold_index_list}\n\ttest: {test_fold_index_list}')
+
 
 # In[ ]:
 
@@ -156,10 +165,6 @@ scheduler_stop = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min
 
 
 # split data, generate train/test_dataloader
-
-train_fold_index_list = hparams.train_set_fold_index
-valid_fold_index_list = hparams.validation_set_fold_index
-test_fold_index_list = hparams.test_set_fold_index
 
 # prepare dataloader
 print(f'{datetime.datetime.now()} - Preparing train_dataloader...')
