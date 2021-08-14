@@ -202,11 +202,11 @@ def train(dataloader, model, loss_fn, optimizer, scheduler, out_floor):
         pred = model(X, out_floor)
         
         if out_floor == 0:
-            loss_gpus = loss_fn(pred, y)
+            loss_gpus = loss_fn(pred, y, threshold)
         else:
             # downsample y
             y_downsample = utils.downsample(y, out_floor)
-            loss_gpus = loss_fn(pred, y_downsample)
+            loss_gpus = loss_fn(pred, y_downsample, threshold)
             
         # 对于某些特殊的损失函数：
         if args.loss in [2,3,4]:
@@ -258,11 +258,11 @@ def test(dataloader, model, loss_fn, out_floor):
             Xout = utils.salience_to_output(Xpred.clone().detach(), threshold=threshold)
             
             if out_floor == 0:
-                loss = loss_fn(Xpred, y)
+                loss = loss_fn(Xpred, y, threshold)
                 oa, vr, vfa, rpa, rca = evaluate.evaluate(Xout, y, out_floor)
             else:
                 y_downsample = utils.downsample(y, out_floor)
-                loss = loss_fn(Xpred, y_downsample)
+                loss = loss_fn(Xpred, y_downsample, threshold)
                 oa, vr, vfa, rpa, rca = evaluate.evaluate(Xout, y_downsample, out_floor)
                 
             if args.loss == 2:

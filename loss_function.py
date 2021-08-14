@@ -18,24 +18,6 @@ import torch.nn.functional as func
 # In[ ]:
 
 
-'''
-原始函数，CrossEntropyLoss_Origin的内核
-def cross_entropy_multilayer_simplify(sm, one_hot): 
-    # sm one_hot都是多片的
-    # 论文原始版本
-        # 可以优化的方向：对unv oicing的部分加以控制：平方误差or dual loss?
-    assert(sm.shape == one_hot.shape)
-    batch_size, case, _ = sm.shape
-    print(batch_size, case)
-    none_zero_lines = one_hot.bool().any(len(one_hot.shape)-1)
-    # print(none_zero_lines)
-    return (-torch.log(sm)*one_hot).sum()/none_zero_lines.sum()
-'''
-
-
-# In[ ]:
-
-
 class CrossEntropyLoss_Origin(nn.Module):
     def __init__(self):
         super(CrossEntropyLoss_Origin, self).__init__()
@@ -124,7 +106,7 @@ class CrossEntropyLoss_for_FA_CESQ_TF(nn.Module):
     def __init__(self):
         super(CrossEntropyLoss_for_FA_CESQ_TF, self).__init__()
         return
-    def forward(self, output, one_hot):
+    def forward(self, output, one_hot, threshold):
         '''
         output: network output(not softmax yet)
                 shape: [N, 1, f, t]
@@ -141,7 +123,7 @@ class CrossEntropyLoss_for_FA_CESQ_TF(nn.Module):
         non_zero = one_hot.bool().any(1).to(torch.int32)
         loss_all = ((1-non_zero)*sq_loss) + ce_loss
         
-        Xout = utils.salience_to_output(output.clone().detach(), threshold=0.05).to(torch.int32)
+        Xout = utils.salience_to_output(output.clone().detach(), threshold=threshold).to(torch.int32)
         cmp_time = (Xout != one_hot).to(torch.int32).sum(dim=1).bool().to(torch.int32) # 判断错误的列
 
         False_loss = (loss_all * cmp_time).sum()
@@ -201,7 +183,7 @@ import utils
 class CrossEntropyLoss_for_FA_CE_TF(nn.Module):
     def __init__(self):
         super(CrossEntropyLoss_for_FA_CE_TF, self).__init__()
-    def forward(self, output, one_hot):
+    def forward(self, output, one_hot, threshold):
         '''
         output: network output(not softmax yet)
                 shape: [N, 1, f, t]
@@ -213,7 +195,7 @@ class CrossEntropyLoss_for_FA_CE_TF(nn.Module):
         sm = output + 1e-20
         
         # 预测结果 T or F
-        Xout = utils.salience_to_output(output.clone().detach(), threshold=0.05).to(torch.int32)
+        Xout = utils.salience_to_output(output.clone().detach(), threshold=threshold).to(torch.int32)
         cmp_time = (Xout != one_hot).to(torch.int32).sum(dim=1).bool().to(torch.int32)
         
         # 对one-hot进行处理，没有label的全零列改成1/f
@@ -247,10 +229,4 @@ class CrossEntropyLoss_for_FA_CE_TF(nn.Module):
         num_unvoicing = loss_all*0 + (num_all - num_voicing)'''
         
         return False_loss, False_num, True_loss, True_num
-
-
-# In[ ]:
-
-
-# hahaha
 
