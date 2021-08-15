@@ -48,3 +48,5 @@ audio_sampling_rate_in_hz = 22050
 
 #[training configuration]
 batch_size = 16
+
+test_batch_size = 16
