@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # coding: utf-8
 
-# In[11]:
+# In[1]:
 
 
 import matplotlib.pyplot as plt
@@ -12,6 +12,7 @@ import os
 import hparams
 import random
 import dataset_track_id
+import utils
 
 
 # In[ ]:
@@ -63,7 +64,7 @@ def chunk_data_with_same_padding(data,
 
 
 # 这个用在最后测试时更合适
-def hcqt_to_melody(data, model): 
+def hcqt_to_melody(data, model, threshold): 
     """
     Chunks hcqt data.
     Args:
@@ -98,7 +99,8 @@ def hcqt_to_melody(data, model):
         else:
             dataset_placeholders = chunks[i:]
 
-        batched_output = model(dataset_placeholders, 0) # [num_batch, h, f, t]
+        batched_output = model(dataset_placeholders, 0) # [num_batch, 1, f, t]
+        batched_output = utils.salience_to_output(batched_output, threshold)
 
         # we might have overlapped, so we cut that part, except for the very first one
         if i == 0 and chunks_beg_overlap_in_bins > 0:
@@ -119,6 +121,7 @@ def hcqt_to_melody(data, model):
         
     if last_chunk is not None:
         batched_output = model(last_chunk, 0)  #[1, 1, f, t]
+        batched_output = utils.salience_to_output(batched_output, threshold)
         last_output = batched_output.squeeze(0).squeeze(0) #[f, t]
 
         # remove the beginning

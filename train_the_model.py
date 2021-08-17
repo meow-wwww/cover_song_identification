@@ -267,14 +267,14 @@ def test(dataloader, model, loss_fn, out_floor):
                 
             if args.loss == 2:
                 loss_gather = (loss[0].sum()+loss[2].sum())/(loss[1].sum()+loss[3].sum())
-                loss_v_gather = loss[0].sum()/loss[1].sum() if loss[1].sum() else 0
-                loss_nv_gather = loss[2].sum()/loss[3].sum() if loss[3].sum() else 0
+                loss_v_gather = loss[0].sum()/loss[1].sum() if loss[1].sum() else loss[0].sum()*0
+                loss_nv_gather = loss[2].sum()/loss[3].sum() if loss[3].sum() else loss[0].sum()*0
                 test_loss_v += loss_v_gather.item()
                 test_loss_nv += loss_nv_gather.item()
             elif args.loss in [3,4]:
                 loss_gather = (loss[0].sum()+loss[2].sum())/(loss[1].sum()+loss[3].sum())
-                loss_f_gather = loss[0].sum()/loss[1].sum() if loss[1].sum() else 0
-                loss_t_gather = loss[2].sum()/loss[3].sum() if loss[3].sum() else 0
+                loss_f_gather = loss[0].sum()/loss[1].sum() if loss[1].sum() else loss[0].sum()*0
+                loss_t_gather = loss[2].sum()/loss[3].sum() if loss[3].sum() else loss[0].sum()*0
                 test_loss_f += loss_f_gather.item()
                 test_loss_t += loss_t_gather.item()
             elif args.loss in [0,1]:
