@@ -37,6 +37,7 @@ BATCH_SIZE = 16
 overlap = 4
 threshold = 0.05
 loss_fn = None
+label_kind = None
 
 print('--------------ArgParse--------------')
 
@@ -54,6 +55,7 @@ parser.add_argument('-o', '--overlap', type=int, help='切出训练数据时，�
 parser.add_argument('-t','--threshold', type=float, help='生成结果用的阈值')
 parser.add_argument('--loss', type=int, help='损失函数')
 parser.add_argument('--vt', help='验证/测试集')
+parser.add_argument('--label', help='label的类型')
 
 args = parser.parse_args()
 
@@ -136,6 +138,10 @@ test_fold_index_list = [int(args.vt[1])]
 train_fold_index_list = [i for i in range(10) if (i not in valid_fold_index_list and i not in test_fold_index_list)]
 print(f'\ttrain: {train_fold_index_list}\n\tvalid: {valid_fold_index_list}\n\ttest: {test_fold_index_list}')
 
+assert args.label in ['origin', 'real_one_hot'], ('label类型不在规定范围内')
+label_kind = args.label
+print(f'label kind: {label_kind}')
+
 
 # In[ ]:
 
@@ -170,15 +176,18 @@ scheduler_stop = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min
 print(f'{datetime.datetime.now()} - Preparing train_dataloader...')
 train_dataloader = data_generator.source_index_to_chunk_list(source_list=train_fold_index_list, 
                                                              data_chunks_duration_in_bins=hparams.data_chunks_duration_in_bins,
-                                                             data_chunks_overlap_in_bins=overlap)
+                                                             data_chunks_overlap_in_bins=overlap,
+                                                             label=label_kind)
 print(f'{datetime.datetime.now()} - Preparing valid_dataloader...')
 valid_dataloader = data_generator.source_index_to_chunk_list(source_list=valid_fold_index_list,
                                                              data_chunks_duration_in_bins=hparams.data_chunks_duration_in_bins,
-                                                             data_chunks_overlap_in_bins=overlap)
+                                                             data_chunks_overlap_in_bins=overlap,
+                                                             label=label_kind)
 print(f'{datetime.datetime.now()} - Preparing test_dataloader...')
 test_dataloader = data_generator.source_index_to_chunk_list(source_list=test_fold_index_list,
                                                              data_chunks_duration_in_bins=hparams.data_chunks_duration_in_bins,
-                                                             data_chunks_overlap_in_bins=overlap)
+                                                             data_chunks_overlap_in_bins=overlap,
+                                                             label=label_kind)
 
 train_dataloader = DataLoader(train_dataloader, batch_size=BATCH_SIZE*len(device_ids), shuffle=True)
 valid_dataloader = DataLoader(valid_dataloader, batch_size=BATCH_SIZE*len(device_ids), shuffle=True)
@@ -267,14 +276,14 @@ def test(dataloader, model, loss_fn, out_floor):
                 
             if args.loss == 2:
                 loss_gather = (loss[0].sum()+loss[2].sum())/(loss[1].sum()+loss[3].sum())
-                loss_v_gather = loss[0].sum()/loss[1].sum() if loss[1].sum() else loss[0].sum()*0
-                loss_nv_gather = loss[2].sum()/loss[3].sum() if loss[3].sum() else loss[0].sum()*0
+                loss_v_gather = loss[0].sum()/loss[1].sum() if loss[1].sum() else loss[1].sum()*0
+                loss_nv_gather = loss[2].sum()/loss[3].sum() if loss[3].sum() else loss[3].sum()*0
                 test_loss_v += loss_v_gather.item()
                 test_loss_nv += loss_nv_gather.item()
             elif args.loss in [3,4]:
                 loss_gather = (loss[0].sum()+loss[2].sum())/(loss[1].sum()+loss[3].sum())
-                loss_f_gather = loss[0].sum()/loss[1].sum() if loss[1].sum() else loss[0].sum()*0
-                loss_t_gather = loss[2].sum()/loss[3].sum() if loss[3].sum() else loss[0].sum()*0
+                loss_f_gather = loss[0].sum()/loss[1].sum() if loss[1].sum() else loss[1].sum()*0
+                loss_t_gather = loss[2].sum()/loss[3].sum() if loss[3].sum() else loss[3].sum()*0
                 test_loss_f += loss_f_gather.item()
                 test_loss_t += loss_t_gather.item()
             elif args.loss in [0,1]:
