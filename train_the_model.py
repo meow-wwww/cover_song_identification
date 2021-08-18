@@ -36,8 +36,6 @@ num_floor = -1
 BATCH_SIZE = 16
 overlap = 4
 threshold = 0.05
-loss_fn = None
-label_kind = None
 
 print('--------------ArgParse--------------')
 
@@ -56,6 +54,7 @@ parser.add_argument('-t','--threshold', type=float, help='生成结果用的阈�
 parser.add_argument('--loss', type=int, help='损失函数')
 parser.add_argument('--vt', help='验证/测试集')
 parser.add_argument('--label', help='label的类型')
+parser.add_argument('--fold', help='fold的类型')
 
 args = parser.parse_args()
 
@@ -142,6 +141,9 @@ assert args.label in ['origin', 'real_one_hot'], ('label类型不在规定范围
 label_kind = args.label
 print(f'label kind: {label_kind}')
 
+fold_version = args.fold
+print(f'fold version: {fold_version}')
+
 
 # In[ ]:
 
@@ -175,16 +177,19 @@ scheduler_stop = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min
 # prepare dataloader
 print(f'{datetime.datetime.now()} - Preparing train_dataloader...')
 train_dataloader = data_generator.source_index_to_chunk_list(source_list=train_fold_index_list, 
+                                                             fold_version=fold_version,
                                                              data_chunks_duration_in_bins=hparams.data_chunks_duration_in_bins,
                                                              data_chunks_overlap_in_bins=overlap,
                                                              label=label_kind)
 print(f'{datetime.datetime.now()} - Preparing valid_dataloader...')
 valid_dataloader = data_generator.source_index_to_chunk_list(source_list=valid_fold_index_list,
+                                                             fold_version=fold_version,
                                                              data_chunks_duration_in_bins=hparams.data_chunks_duration_in_bins,
                                                              data_chunks_overlap_in_bins=overlap,
                                                              label=label_kind)
 print(f'{datetime.datetime.now()} - Preparing test_dataloader...')
 test_dataloader = data_generator.source_index_to_chunk_list(source_list=test_fold_index_list,
+                                                             fold_version=fold_version,
                                                              data_chunks_duration_in_bins=hparams.data_chunks_duration_in_bins,
                                                              data_chunks_overlap_in_bins=overlap,
                                                              label=label_kind)

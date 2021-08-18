@@ -188,11 +188,18 @@ def chunk_data(data, data_chunks_duration_in_bins,
     else:
         return chunks
 
-def source_index_to_chunk_list(source_list, data_chunks_duration_in_bins, data_chunks_overlap_in_bins, label):
+def source_index_to_chunk_list(source_list, fold_version, data_chunks_duration_in_bins, data_chunks_overlap_in_bins, label):
     '''
     For training.
     Params:
         source_list: a list of index eg.[0,1,4,5,6,7,8,9], meaning the songs to be chunked
+        fold_version: 
+            'dataset_track_id_list'
+            'dataset_track_id_list_instrumental'
+            'dataset_track_id_list_non_instrumental'
+            'dataset_track_id_list_re_assign'
+            'dataset_track_id_list_re_assign_instrumental'
+            'dataset_track_id_list_re_assign_non_instrumental'
         data_chunks_duration_in_bins: 每一个训练样本的时间步长度
         data_chunks_overlap_in_bins: 不同训练样本间跳步长度
         label:str,由于标签有多版，label指示用哪一版。
@@ -208,10 +215,10 @@ def source_index_to_chunk_list(source_list, data_chunks_duration_in_bins, data_c
     elif label == 'real_one_hot':
         prefix_input = os.path.join('./inputs', '')
         prefix_output = os.path.join('./outputs', label)
-    
     chunk_list = []
     for fold_index in source_list:
-        fold_list = dataset_track_id.dataset_track_id_list[fold_index]
+        fold_list = getattr(dataset_track_id, fold_version)[fold_index]
+        # dataset_track_id.dataset_track_id_list[fold_index]
         for track_id in fold_list:
             X = np.load(os.path.join(prefix_input, f'{track_id}_mel2_input.hcqt.npy'))
             y = np.load(os.path.join(prefix_output, f'{track_id}_mel2_output.npy'))
@@ -247,8 +254,6 @@ def track_id_list_to_chunk_list(track_id_list_name, data_chunks_duration_in_bins
     '''
     chunk_list = []
     
-    fold_list = getattr(dataset_track_id, track_id_list_name)
-    
     if label == 'origin':
         prefix_input = './inputs'
         prefix_output = './outputs'
@@ -256,7 +261,7 @@ def track_id_list_to_chunk_list(track_id_list_name, data_chunks_duration_in_bins
         prefix_input = os.path.join('./inputs', '')
         prefix_output = os.path.join('./outputs', label)
         
-    for track_id in fold_list:
+    for track_id in getattr(dataset_track_id, track_id_list_name):
         X = np.load(os.path.join(prefix_input, f'{track_id}_mel2_input.hcqt.npy'))
         y = np.load(os.path.join(prefix_output, f'{track_id}_mel2_output.npy'))
         X_chunk = chunk_data(X, 
