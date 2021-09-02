@@ -89,7 +89,7 @@ for ii, (root, dirs, files) in tqdm(enumerate(os.walk(in_dir))):
             out_path = out_dir + set_id + '_' + file.split('.')[0] + '.npy'
             params.append((in_path, out_path))
             
-params = params[77:500]
+params = params[177:3000]
 
 
 # In[ ]:
