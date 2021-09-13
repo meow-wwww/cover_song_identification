@@ -137,7 +137,7 @@ test_fold_index_list = [int(args.vt[1])]
 train_fold_index_list = [i for i in range(10) if (i not in valid_fold_index_list and i not in test_fold_index_list)]
 print(f'\ttrain: {train_fold_index_list}\n\tvalid: {valid_fold_index_list}\n\ttest: {test_fold_index_list}')
 
-assert args.label in ['origin', 'real_one_hot'], ('label类型不在规定范围内')
+assert args.label in ['origin', 'real_one_hot', '3bin', '1bin'], ('label类型不在规定范围内')
 label_kind = args.label
 print(f'label kind: {label_kind}')
 
@@ -194,9 +194,9 @@ test_dataloader = data_generator.source_index_to_chunk_list(source_list=test_fol
                                                              data_chunks_overlap_in_bins=overlap,
                                                              label=label_kind)
 
-train_dataloader = DataLoader(train_dataloader, batch_size=BATCH_SIZE*len(device_ids), shuffle=True)
-valid_dataloader = DataLoader(valid_dataloader, batch_size=BATCH_SIZE*len(device_ids), shuffle=True)
-test_dataloader = DataLoader(test_dataloader, batch_size=BATCH_SIZE*len(device_ids), shuffle=True)
+train_dataloader = DataLoader(train_dataloader, batch_size=BATCH_SIZE, shuffle=True)
+valid_dataloader = DataLoader(valid_dataloader, batch_size=BATCH_SIZE, shuffle=True)
+test_dataloader = DataLoader(test_dataloader, batch_size=BATCH_SIZE, shuffle=True)
 
 
 # In[ ]:

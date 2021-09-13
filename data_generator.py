@@ -205,6 +205,8 @@ def source_index_to_chunk_list(source_list, fold_version, data_chunks_duration_i
         label:str,由于标签有多版，label指示用哪一版。
             'origin':
             'real_one_hot':
+            '3bin': 
+            '1bin':
     Return:
         chunk_list: a list of tuple(X, y), X is hcqt, y is annotation
     doesn't include last_chunk.
@@ -215,6 +217,12 @@ def source_index_to_chunk_list(source_list, fold_version, data_chunks_duration_i
     elif label == 'real_one_hot':
         prefix_input = os.path.join('./inputs', '')
         prefix_output = os.path.join('./outputs', label)
+    elif label == '3bin':
+        prefix_input = './less_bins/inputs/'
+        prefix_output = './less_bins/outputs/'
+    elif label == '1bin':
+        prefix_input = './melody-1bin/inputs/'
+        prefix_output = './melody-1bin/outputs/'
     chunk_list = []
     for fold_index in source_list:
         fold_list = getattr(dataset_track_id, fold_version)[fold_index]
@@ -248,6 +256,8 @@ def track_id_list_to_chunk_list(track_id_list_name, data_chunks_duration_in_bins
         label:str,由于标签有多版，label指示用哪一版。
             'origin':
             'real_one_hot':
+            '3bin': 
+            '1bin':
     Return:
         chunk_list: a list of tuple(X, y), X is hcqt, y is annotation
     doesn't include last_chunk.
@@ -260,7 +270,12 @@ def track_id_list_to_chunk_list(track_id_list_name, data_chunks_duration_in_bins
     elif label == 'real_one_hot':
         prefix_input = os.path.join('./inputs', '')
         prefix_output = os.path.join('./outputs', label)
-        
+    elif label == '3bin':
+        prefix_input = './less_bins/inputs/'
+        prefix_output = './less_bins/outputs/'
+    elif label == '1bin':
+        prefix_input = './melody-1bin/inputs/'
+        prefix_output = './melody-1bin/outputs/'
     for track_id in getattr(dataset_track_id, track_id_list_name):
         X = np.load(os.path.join(prefix_input, f'{track_id}_mel2_input.hcqt.npy'))
         y = np.load(os.path.join(prefix_output, f'{track_id}_mel2_output.npy'))

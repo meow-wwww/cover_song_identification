@@ -13,7 +13,7 @@ from torch.nn import init
 from .basic_module import BasicModule
 from .FCN import *
 
-# wxy: 
+
 class CQTSPPNet_seq_dilation_SPP(BasicModule):
     def __init__(self):
         super().__init__()
@@ -78,25 +78,26 @@ class CQTSPPNet_seq_dilation_SPP(BasicModule):
         ]))
 
     def forward(self, x):
-        x1 = self.features1(x)  # [N, 512, 1, 86]
-        x2 = self.features2(x1)
-        x3 = self.features3(x2)
-        x4 = self.features4(x3)
-        x5 = self.features5(x4)
+        x1 = self.features1(x)  # [N, 64,  193, 394]
+        x2 = self.features2(x1) # [N, 64,  179, 194]
+        x3 = self.features3(x2) # [N, 128, 175, 94]
+        x4 = self.features4(x3) # [N, 256, 171, 44]
+        x5 = self.features5(x4) # [N, 512, 1,   38]
         
         # x1-x5的形状都是[N, c, f, t]
         # 下面是每个t的所有f做平均，重排，最后每个样本输出的深度序列都是二维的[c, t]，f压缩成一个数以后，通道变成了纵向的维度
         
         x1 = nn.AdaptiveMaxPool2d((1, None))(
-            x1).squeeze(dim=2).permute(0, 2, 1)
+            x1).squeeze(dim=2).permute(0, 2, 1) # [N, 394, 64]
         x2 = nn.AdaptiveMaxPool2d((1, None))(
-            x2).squeeze(dim=2).permute(0, 2, 1)
+            x2).squeeze(dim=2).permute(0, 2, 1) # [N, 194, 64]
         x3 = nn.AdaptiveMaxPool2d((1, None))(
-            x3).squeeze(dim=2).permute(0, 2, 1)
+            x3).squeeze(dim=2).permute(0, 2, 1) # [N, 94, 128]
         x4 = nn.AdaptiveMaxPool2d((1, None))(
-            x4).squeeze(dim=2).permute(0, 2, 1)
-        x5 = x5.squeeze(dim=2).permute(0, 2, 1)
-        return x2, x3, x4, x5
+            x4).squeeze(dim=2).permute(0, 2, 1) # [N, 44, 256]
+        x5 = x5.squeeze(dim=2).permute(0, 2, 1) # [N, 38, 512]
+        
+        return x2, x3, x4, x5 # [N, t, c]
     
     
 class NeuralDTW_CNN_Mask_dilation_SPP6(BasicModule):
@@ -120,10 +121,14 @@ class NeuralDTW_CNN_Mask_dilation_SPP6(BasicModule):
         self.fc = nn.Linear( 37376, 1)
 
     def metric(self, seqa, seqp, debug=False):
+        # seqa: [N, t1, c]
+        # seqp: [N, t2, c]
         T1, T2, C = seqa.shape[1], seqp.shape[1], seqp.shape[2]
         seqa, seqp = seqa.repeat(1, 1, T2), seqp.repeat(1, T1, 1)
-        seqa, seqp = seqa.view(-1, C), seqp.view(-1, C)
-        d_ap = seqa - seqp
+        # seqa: [N, t1, c*t2]
+        # seqp: [N, t2*t1, c]
+        seqa, seqp = seqa.view(-1, C), seqp.view(-1, C) # [N*t1*t2, C]
+        d_ap = seqa - seqp # [N*t1*t2, C]
         d_ap = d_ap * d_ap
         d_ap = d_ap.sum(dim=1, keepdim=True)
         d_ap_s = d_ap
@@ -132,18 +137,12 @@ class NeuralDTW_CNN_Mask_dilation_SPP6(BasicModule):
 
     def multi_compute_s(self, seqa, seqb):
         seqa1, seqa2, seqa3, seqa4, = self.model(seqa)
-        seqb1, seqb2, seqb3, seqb4 = self.model(seqb)
-        # p_a1 = self.metric(seqa1 , seqb1).unsqueeze(1)
-        p_a1 = self.metric(seqa1, seqb1).unsqueeze(1)
-        p_a2 = self.metric(seqa2, seqb2).unsqueeze(1)
-        p_a3 = self.metric(seqa3, seqb3).unsqueeze(1)
-        p_a4 = self.metric(seqa4, seqb4).unsqueeze(1)
-        # p_a = torch.cat((p_a2,p_a3,p_a4),3)
-        # torch.Size([1, 1, 84, 400])
-        # torch.Size([1, 194, 64])
-        # torch.Size([1, 94, 128])
-        # torch.Size([1, 44, 256])
-        # torch.Size([1, 38, 512])
+        seqb1, seqb2, seqb3, seqb4 = self.model(seqb) # [N, 194, 64] [N, 94, 128] [N, 44, 256] [N, 38, 512]
+        p_a1 = self.metric(seqa1, seqb1).unsqueeze(1) # [N, 1, 194, 194]
+        p_a2 = self.metric(seqa2, seqb2).unsqueeze(1) # [N, 1, 94, 94]
+        p_a3 = self.metric(seqa3, seqb3).unsqueeze(1) # [N, 1, 44, 44]
+        p_a4 = self.metric(seqa4, seqb4).unsqueeze(1) # [N, 1, 38, 38]
+        
         VGG_out0 = self.VGG_Conv1(p_a1)
         VGG_out0 = VGG_out0['x5'].view(VGG_out0['x4'].shape[0], -1)
         VGG_out1 = self.VGG_Conv1(p_a2)

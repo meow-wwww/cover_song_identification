@@ -18,6 +18,8 @@ from multiprocessing import Pool
 from tqdm import tqdm
 import argparse
 
+os.environ["CUDA_VISIBLE_DEVICES"] = "0"
+
 
 # In[ ]:
 

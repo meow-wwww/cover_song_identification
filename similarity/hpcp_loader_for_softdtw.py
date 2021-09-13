@@ -163,9 +163,13 @@ class triplet_HPCP(Dataset):
     
     
 class triplet_CQT(Dataset):
-    # dataset: youtube
-    def __init__(self, out_length, in_dir='/S3/DAA/jcy/SCNN/data/youtube_cqt_npy/',
-                 filepath='/S3/DAA/jcy/SCNN/hpcp/triplet_SHS100K-TRAIN.list', is_random=True, is_label=False):
+    # dataset: SHS100K
+    def __init__(self, out_length,
+                 # in_dir='/S3/DAA/jcy/SCNN/data/youtube_cqt_npy/',
+                 in_dir='/S3/DAA/shs100k/melody-3bin/',
+                 # filepath='/S3/DAA/jcy/SCNN/hpcp/triplet_SHS100K-TRAIN.list',
+                 filepath='/S3/DAA/wxy/cover_song_identification/similarity/data_split/train_short.list',
+                 is_random=True, is_label=False):
         self.indir = in_dir
         self.out_length = out_length
         with open(filepath, 'r') as fp:
@@ -270,7 +274,6 @@ class CENS(Dataset):
 
 class CQT(Dataset):
     def __init__(self, mode='train', out_length=None):
-        # self.indir = 'data/youtube_cqt_npy/'
         self.indir = '/S3/DAA/jcy/SCNN/data/youtube_cqt_npy/'
         self.mode = mode
         if mode == 'train':
@@ -283,7 +286,7 @@ class CQT(Dataset):
             filepath = '/S3/DAA/jcy/SCNN/hpcp/SHS100K-VAL'
         elif mode == 'songs350':
             self.indir = '/S3/DAA/jcy/SCNN/data/you350_cqt_npy/'
-            filepath = '/S3/DAA/jcy/SCNN/hpcp/you350_list.txt' # 每行都是'0_0' '0_1'这样
+            filepath = '/S3/DAA/jcy/SCNN/hpcp/you350_list.txt'
         elif mode == 'test':
             filepath = '/S3/DAA/jcy/SCNN/hpcp/SHS100K-TEST'
             # filepath='hpcp/test_list.txt'
