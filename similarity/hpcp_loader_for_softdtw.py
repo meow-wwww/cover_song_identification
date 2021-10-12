@@ -160,7 +160,7 @@ class CQT(Dataset):
                 self.indir = '/S3/DAA/gdoras_dataset/avg20/test/multif0_cqts_padded_1937x72/'
             elif mode[1] == 'multif0_avg5':
                 dtype, avg = mode[1].split('_')
-                self.indir = f'/S3/DAA/gdoras_dataset/{avg}/train/{dtype}_cqts_padded_1937x72/'
+                self.indir = f'/S3/DAA/gdoras_dataset/{avg}/test/{dtype}_cqts_padded_1937x72/'
             filepath = f'/S3/DAA/wxy/cover_song_identification/similarity/list/gdoras_test_{mode[2]}.list'
         elif mode[0] == 'shs_wxy':
             self.indir = '/S3/DAA/jcy/SCNN/data/youtube_cqt_npy/'
