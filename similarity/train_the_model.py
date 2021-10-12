@@ -179,7 +179,7 @@ train_dataloader = DataLoader(train_data, BATCH_SIZE, shuffle=True, num_workers=
 
 print(f'{datetime.datetime.now()} - Preparing test_dataloader...')
 test_data = CQT(mode=(test_source, datatype, test_scale), out_length=400)
-test_dataloader = DataLoader(test_data, BATCH_SIZE, shuffle=True, num_workers=num_workers)
+test_dataloader = DataLoader(test_data, BATCH_SIZE, shuffle=False, num_workers=num_workers)
 
 
 # In[38]:
@@ -205,12 +205,13 @@ def train(dataloader, model, loss_fn, optimizer, scheduler):
         pred = pred.squeeze(1)
 #         print(pred, target)
         loss = loss_fn(pred, target)
-        loss = loss.sum()
+        loss = loss.sum() # 注意,这里的loss不是平均每帧的loss,而是(平均每帧的loss*gpu数)
 #         print(loss)
         loss.backward()
 #         print(list(model.named_parameters())[0][1].grad[0])
         optimizer.step()
 
+        loss /= len(device_ids)
         loss_total += loss.item()
         num += B
 
@@ -327,7 +328,8 @@ for t in range(epochs):
         print(f'[epoch {t+1}] {best_MAP:.4f} --- {MAP:.4f}. Save.')
         best_MAP = MAP
         torch.save(model.state_dict(), os.path.join(save_dir, f'model_best.pth'))
-        torch.save(model.state_dict(), os.path.join(save_dir, f'latest.pth'))
+    
+    torch.save(model.state_dict(), os.path.join(save_dir, f'latest.pth'))
 
     train_loss_list.append(train_loss)
     test_MAP_list.append(MAP)
